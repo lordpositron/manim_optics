@@ -24,8 +24,7 @@ manim-optics/
 │   └── PlaneMirror         # Miroir plan
 ├── rays.py                  # Système de rayons dynamiques
 │   ├── DynamicRay          # Rayon avec updaters automatiques
-│   ├── RayBundle           # Faisceau de rayons parallèles
-│   └── PrincipalRays       # Trois rayons principaux
+│   └── RayBundle           # Faisceau de rayons parallèles
 └── scene_utils.py          # Utilitaires pour les scènes
     ├── OpticalScene        # Scene avec helpers optiques
     └── Helper functions    # Création d'objets, calculs, etc.
