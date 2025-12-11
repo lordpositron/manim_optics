@@ -532,7 +532,12 @@ class RayBundle(VGroup):
         """
         positions = []
         for element in self.optical_elements:
-            positions.append(element.get_center())
+            # Use get_optical_plane_position() instead of get_center()
+            # to get the correct position of the optical plane
+            if hasattr(element, "get_optical_plane_position"):
+                positions.append(element.get_optical_plane_position())
+            else:
+                positions.append(element.get_center())
 
         if index >= len(self.optical_elements):
             return None
@@ -773,6 +778,68 @@ class RayExtension(VMobject):
         # Add updater
         self.add_updater(self._update_extension)
 
+    def _is_virtual_image(
+        self, 
+        element_pos: np.ndarray, 
+        next_element_pos: Optional[np.ndarray], 
+        image_pos: float,
+        is_mirror: bool
+    ) -> bool:
+        """
+        Determine if the image is virtual (requires extension visualization).
+
+        Critères:
+        - Pour une lentille (transmission):
+          * Image virtuelle si image est AVANT la lentille (image_pos < element_pos)
+          * Image réelle si image est APRÈS la lentille
+        
+        - Pour un miroir (réflexion):
+          * Image virtuelle si image est DERRIÈRE le miroir (image_pos > element_pos)
+          * Image réelle si image est DEVANT le miroir (image_pos < element_pos)
+        
+        - Si l'image est entre deux éléments optiques:
+          * Image réelle (pas d'extension nécessaire)
+        
+        Parameters
+        ----------
+        element_pos : np.ndarray
+            Position of the current optical element
+        next_element_pos : Optional[np.ndarray]
+            Position of the next optical element (None if last)
+        image_pos : float
+            X-position of the image
+        is_mirror : bool
+            Whether the element is a mirror
+            
+        Returns
+        -------
+        bool
+            True if image is virtual (show extensions), False if real (no extensions)
+        """
+        # Cas 1: Image entre deux éléments optiques → image réelle
+        if next_element_pos is not None:
+            if element_pos[0] < image_pos < next_element_pos[0]:
+                # Image entre les deux éléments → réelle
+                return False
+            elif element_pos[0] > image_pos > next_element_pos[0]:
+                # Image entre les deux éléments (ordre inverse) → réelle
+                return False
+        
+        # Cas 2: Dernier élément ou image hors de l'intervalle
+        if is_mirror:
+            # Pour un miroir:
+            # - Image réelle si DEVANT le miroir (du côté incident)
+            # - Image virtuelle si DERRIÈRE le miroir
+            # En convention: rayons viennent de la gauche, miroir réfléchit vers la gauche
+            # Image réelle: x < element_x (devant)
+            # Image virtuelle: x > element_x (derrière)
+            return image_pos > element_pos[0]
+        else:
+            # Pour une lentille (transmission):
+            # - Image réelle si APRÈS la lentille (rayons passent réellement)
+            # - Image virtuelle si AVANT la lentille
+            return image_pos < element_pos[0]
+
     def _update_extension(self, mobject: Optional[Mobject], dt: float = 0) -> None:
         """Update the extension line based on ray position."""
 
@@ -782,29 +849,42 @@ class RayExtension(VMobject):
         next_element_pos = self.ray_bundle.get_optical_elements_positions(
             index=self.element_idx + 1
         )
-        if next_element_pos is None:
-            is_last_element = True
+        is_last_element = next_element_pos is None
+        
+        # Get the optical element to check if it's a mirror
+        if (self.ray_bundle.optical_elements and 
+            0 <= self.element_idx < len(self.ray_bundle.optical_elements)):
+            element = self.ray_bundle.optical_elements[self.element_idx]
+            is_mirror = element.is_mirror()
         else:
-            is_last_element = False
+            is_mirror = False
 
-        # Update extended rays visibility
-        if self.image_pos.get_value() < element_pos[0]:
-            # cas image virtuel avant le systeme
-            self.set_opacity(1)
-            self.direction = "backward"
-            self.extension_length = abs(self.image_pos.get_value() - element_pos[0])
-        elif not is_last_element and self.image_pos.get_value() > next_element_pos[0]:
-            # cas image virtuel apres le systeme
-            self.set_opacity(1)
-            self.direction = "forward"
-            self.extension_length = abs(
-                self.image_pos.get_value() - next_element_pos[0]
-            )
-        else:
-            # cas image reelle entre les elements optiques
+        # Determine if image is virtual using the new robust method
+        image_pos_value = self.image_pos.get_value()
+        is_virtual = self._is_virtual_image(
+            element_pos, next_element_pos, image_pos_value, is_mirror
+        )
+
+        if not is_virtual:
+            # Image réelle → pas d'extension
             self.set_opacity(0)
             self.direction = "none"
             self.extension_length = 0
+            self.become(VectorizedPoint())
+            return
+        
+        # Image virtuelle → afficher l'extension
+        self.set_opacity(1)
+        
+        # Déterminer la direction de l'extension
+        if is_mirror:
+            # Pour miroir avec image virtuelle (derrière le miroir)
+            self.direction = "forward"  # Extension vers l'arrière (vers l'image derrière)
+            self.extension_length = abs(image_pos_value - element_pos[0])
+        else:
+            # Pour lentille avec image virtuelle (avant la lentille)
+            self.direction = "backward"  # Extension vers l'arrière (vers l'image avant)
+            self.extension_length = abs(image_pos_value - element_pos[0])
 
         # Get ray points
         ray_points = self.ray.get_points()
@@ -822,7 +902,36 @@ class RayExtension(VMobject):
         else:
             # Specific segment
             idx = self.ray.get_vertex_index_from_pos(element_pos)
-            start_point, end_point = ray_points[idx], ray_points[idx + 1]
+            if idx is None:
+                self.become(VectorizedPoint())
+                return
+
+            # For mirrors with virtual images behind (direction="forward" and is_last_element),
+            # we need to extend toward the virtual image position, not just extend the incident ray
+            if self.direction == "forward" and is_last_element:
+                # For virtual image: draw line from mirror toward the focal point
+                # Find the intersection point on the mirror
+                mirror_x = element_pos[0]
+                
+                # The intersection point is at idx (or close to it)
+                # Find the point at the mirror
+                intersection_point = ray_points[idx]
+                
+                # Calculate the focal point where all rays converge
+                # This gives us the full 3D position including y coordinate
+                focal_point = find_focal_point_from_rays(
+                    self.ray_bundle, element_index=self.element_idx
+                )
+
+                if focal_point is None:
+                    self.become(VectorizedPoint())
+                    return
+
+                start_point = intersection_point
+                end_point = focal_point
+            else:
+                # Normal case: use the segment after the element
+                start_point, end_point = ray_points[idx], ray_points[idx + 1]
 
         # Calculate direction
         segment_dir = end_point - start_point
@@ -833,11 +942,18 @@ class RayExtension(VMobject):
         segment_dir = segment_dir / np.linalg.norm(segment_dir)
 
         if self.direction == "forward":
-            # Extend from end_point
-            extension_start = end_point
-            extension_end = (
-                end_point + segment_dir * self.extension_length * self.overshoot
-            )
+            # For virtual images behind mirrors: we already have start and end points
+            # pointing toward the image. Just extend slightly beyond.
+            if is_last_element:
+                # Extend from mirror to beyond the image
+                extension_start = start_point
+                extension_end = end_point  # Already at image position
+            else:
+                # Normal forward: extend from end_point in the direction of the segment
+                extension_start = end_point
+                extension_end = (
+                    end_point + segment_dir * self.extension_length * self.overshoot
+                )
         elif self.direction == "backward":
             # Extend backward from start_point
             extension_start = (
@@ -850,15 +966,18 @@ class RayExtension(VMobject):
             return
 
         # Create dashed line
-        dashed = DashedLine(
-            extension_start,
-            extension_end,
-            dash_length=0.1,
-            stroke_width=self.ray.get_stroke_width() * 0.7,
-            color=self.ray.get_color(),
-            stroke_opacity=0.5,
-        )
-        self.become(dashed)
+        if self.get_stroke_opacity() > 0:
+            dashed = DashedLine(
+                extension_start,
+                extension_end,
+                dash_length=0.1,
+                stroke_width=self.ray.get_stroke_width() * 0.7,
+                color=self.ray.get_color(),
+                stroke_opacity=0.5,
+            )
+            self.become(dashed)
+        else:
+            self.become(VectorizedPoint())
 
 
 def find_ray_intersection(
@@ -1080,16 +1199,13 @@ def find_focal_point_from_rays(
 
     if optical_element_position is None:
         # Filter rays that have passed the optical element
-        print("Filtering rays based on optical element position.")
         return None
 
     if len(rays) < 2:
-        print("At least two rays are required to find a focal point.")
         return None
 
     # Exact solution for 2 rays
     if len(rays) == 2:
-        print("Using exact intersection for 2 rays.")
         return find_ray_intersection(rays[0], rays[1], element_index, element_index)
 
     # Least squares for N rays
@@ -1121,7 +1237,6 @@ def find_focal_point_from_rays(
         ray_directions.append(direction[:2])
 
     if len(ray_origins) < 2:
-        print("Not enough valid rays to compute focal point.")
         return None
 
     # Solve least squares: minimize sum_i ||P - O_i - ((P-O_i)·D_i)D_i||^2
@@ -1140,7 +1255,6 @@ def find_focal_point_from_rays(
         return np.array([focal_point_2d[0], focal_point_2d[1], 0])
     except np.linalg.LinAlgError:
         # Singular matrix - rays are parallel
-        print("Failed to compute focal point: rays may be parallel.")
         return None
 
 

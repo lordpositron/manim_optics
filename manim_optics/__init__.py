@@ -21,6 +21,7 @@ from .optical_elements import (
     DivergingLens,
     Mirror,
     PlaneMirror,
+    SphericalMirror,
 )
 
 from .rays import (
@@ -53,6 +54,7 @@ __all__ = [
     "DivergingLens",
     "Mirror",
     "PlaneMirror",
+    "SphericalMirror",
     # Rays
     "DynamicRay",
     "RayBundle",
