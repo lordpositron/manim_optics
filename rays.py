@@ -728,11 +728,11 @@ class RayExtension(VMobject):
     def __init__(
         self,
         ray: DynamicRay,
-        extension_length: float = 5.0,
-        element_idx: Optional[NDArray[np.floating]] = None,
-        segment_index: int = -1,
-        direction: str = "auto",
+        element_idx: NDArray[np.floating] = None,
+        ray_bundle: RayBundle = None,
+        image_pos: ValueTracker = None,
         color: Optional[str] = None,
+        overshoot: float = 1.1,
         **kwargs,
     ):
         """
@@ -754,19 +754,18 @@ class RayExtension(VMobject):
         """
         super().__init__(**kwargs)
         self.ray = ray
-        self.extension_length = extension_length
-        self.image_pos = element_idx
-        self.segment_index = segment_index
-        self.direction = direction
+        self.element_idx = element_idx
+        self.ray_bundle = ray_bundle
+        self.image_pos = image_pos
+        self.overshoot = overshoot
 
         # Visual properties
         if color is None:
             color = ray.get_color()
         self.set_stroke(color=color, width=ray.get_stroke_width() * 0.7)
         self.set_stroke(opacity=0.5)
-
-        # Make it dashed
         self.set_style(stroke_opacity=0.5)
+        self.set_opacity(0)
 
         # Calculate initial extension
         self._update_extension(None)
@@ -776,6 +775,37 @@ class RayExtension(VMobject):
 
     def _update_extension(self, mobject: Optional[Mobject], dt: float = 0) -> None:
         """Update the extension line based on ray position."""
+
+        element_pos = self.ray_bundle.get_optical_elements_positions(
+            index=self.element_idx
+        )
+        next_element_pos = self.ray_bundle.get_optical_elements_positions(
+            index=self.element_idx + 1
+        )
+        if next_element_pos is None:
+            is_last_element = True
+        else:
+            is_last_element = False
+
+        # Update extended rays visibility
+        if self.image_pos.get_value() < element_pos[0]:
+            # cas image virtuel avant le systeme
+            self.set_opacity(1)
+            self.direction = "backward"
+            self.extension_length = abs(self.image_pos.get_value() - element_pos[0])
+        elif not is_last_element and self.image_pos.get_value() > next_element_pos[0]:
+            # cas image virtuel apres le systeme
+            self.set_opacity(1)
+            self.direction = "forward"
+            self.extension_length = abs(
+                self.image_pos.get_value() - next_element_pos[0]
+            )
+        else:
+            # cas image reelle entre les elements optiques
+            self.set_opacity(0)
+            self.direction = "none"
+            self.extension_length = 0
+
         # Get ray points
         ray_points = self.ray.get_points()
 
@@ -785,15 +815,14 @@ class RayExtension(VMobject):
 
         # Get the segment to extend
         num_points = len(ray_points)
-        if self.segment_index == -1:
+        if self.element_idx == -1:
             # Last segment
             start_point = ray_points[-2] if num_points >= 2 else ray_points[0]
             end_point = ray_points[-1]
         else:
             # Specific segment
-            idx = min(self.segment_index, num_points - 2)
-            start_point = ray_points[idx]
-            end_point = ray_points[idx + 1]
+            idx = self.ray.get_vertex_index_from_pos(element_pos)
+            start_point, end_point = ray_points[idx], ray_points[idx + 1]
 
         # Calculate direction
         segment_dir = end_point - start_point
@@ -806,11 +835,19 @@ class RayExtension(VMobject):
         if self.direction == "forward":
             # Extend from end_point
             extension_start = end_point
-            extension_end = end_point + segment_dir * self.extension_length
-        else:
+            extension_end = (
+                end_point + segment_dir * self.extension_length * self.overshoot
+            )
+        elif self.direction == "backward":
             # Extend backward from start_point
-            extension_start = start_point - segment_dir * self.extension_length
+            extension_start = (
+                start_point - segment_dir * self.extension_length * self.overshoot
+            )
             extension_end = start_point
+        else:
+            # No extension
+            self.become(VectorizedPoint())
+            return
 
         # Create dashed line
         dashed = DashedLine(
@@ -1189,9 +1226,9 @@ class ImageFormation(VGroup):
             for ray in ray_bundle.rays:
                 ext = RayExtension(
                     ray=ray,
-                    extension_length=extension_length,
                     element_idx=optical_element_index,
-                    direction="auto",
+                    ray_bundle=ray_bundle,
+                    image_pos=self.x_pos_image,
                     color=extension_color,
                 )
                 self.extended_rays.add(ext)
@@ -1225,18 +1262,10 @@ class ImageFormation(VGroup):
         focal_point = find_focal_point_from_rays(
             self.ray_bundle, element_index=self.optical_element_index
         )
-        element_pos = self.ray_bundle.get_optical_elements_positions(
-            index=self.optical_element_index
-        )
-        next_element_pos = self.ray_bundle.get_optical_elements_positions(
-            index=self.optical_element_index + 1
-        )
-        if next_element_pos is None:
-            is_last_element = True
-        else:
-            is_last_element = False
 
         if focal_point is not None:
+            self.x_pos_image.set_value(focal_point[0])
+
             # Update focal point marker
             if self._show_focal_point:
                 self.focal_point_dot.move_to(focal_point)
