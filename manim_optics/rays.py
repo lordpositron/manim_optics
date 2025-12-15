@@ -779,11 +779,11 @@ class RayExtension(VMobject):
         self.add_updater(self._update_extension)
 
     def _is_virtual_image(
-        self, 
-        element_pos: np.ndarray, 
-        next_element_pos: Optional[np.ndarray], 
+        self,
+        element_pos: np.ndarray,
+        next_element_pos: Optional[np.ndarray],
         image_pos: float,
-        is_mirror: bool
+        is_mirror: bool,
     ) -> bool:
         """
         Determine if the image is virtual (requires extension visualization).
@@ -792,14 +792,14 @@ class RayExtension(VMobject):
         - Pour une lentille (transmission):
           * Image virtuelle si image est AVANT la lentille (image_pos < element_pos)
           * Image réelle si image est APRÈS la lentille
-        
+
         - Pour un miroir (réflexion):
           * Image virtuelle si image est DERRIÈRE le miroir (image_pos > element_pos)
           * Image réelle si image est DEVANT le miroir (image_pos < element_pos)
-        
+
         - Si l'image est entre deux éléments optiques:
           * Image réelle (pas d'extension nécessaire)
-        
+
         Parameters
         ----------
         element_pos : np.ndarray
@@ -810,7 +810,7 @@ class RayExtension(VMobject):
             X-position of the image
         is_mirror : bool
             Whether the element is a mirror
-            
+
         Returns
         -------
         bool
@@ -824,7 +824,7 @@ class RayExtension(VMobject):
             elif element_pos[0] > image_pos > next_element_pos[0]:
                 # Image entre les deux éléments (ordre inverse) → réelle
                 return False
-        
+
         # Cas 2: Dernier élément ou image hors de l'intervalle
         if is_mirror:
             # Pour un miroir:
@@ -850,10 +850,11 @@ class RayExtension(VMobject):
             index=self.element_idx + 1
         )
         is_last_element = next_element_pos is None
-        
+
         # Get the optical element to check if it's a mirror
-        if (self.ray_bundle.optical_elements and 
-            0 <= self.element_idx < len(self.ray_bundle.optical_elements)):
+        if self.ray_bundle.optical_elements and 0 <= self.element_idx < len(
+            self.ray_bundle.optical_elements
+        ):
             element = self.ray_bundle.optical_elements[self.element_idx]
             is_mirror = element.is_mirror()
         else:
@@ -872,14 +873,16 @@ class RayExtension(VMobject):
             self.extension_length = 0
             self.become(VectorizedPoint())
             return
-        
+
         # Image virtuelle → afficher l'extension
         self.set_opacity(1)
-        
+
         # Déterminer la direction de l'extension
         if is_mirror:
             # Pour miroir avec image virtuelle (derrière le miroir)
-            self.direction = "forward"  # Extension vers l'arrière (vers l'image derrière)
+            self.direction = (
+                "forward"  # Extension vers l'arrière (vers l'image derrière)
+            )
             self.extension_length = abs(image_pos_value - element_pos[0])
         else:
             # Pour lentille avec image virtuelle (avant la lentille)
@@ -912,11 +915,11 @@ class RayExtension(VMobject):
                 # For virtual image: draw line from mirror toward the focal point
                 # Find the intersection point on the mirror
                 mirror_x = element_pos[0]
-                
+
                 # The intersection point is at idx (or close to it)
                 # Find the point at the mirror
                 intersection_point = ray_points[idx]
-                
+
                 # Calculate the focal point where all rays converge
                 # This gives us the full 3D position including y coordinate
                 focal_point = find_focal_point_from_rays(
@@ -1225,6 +1228,9 @@ def find_focal_point_from_rays(
             p_start, p_end = points[-2], points[-1]
         else:
             idx = ray.get_vertex_index_from_pos(optical_element_position)
+            if idx is None:
+                # Ray doesn't intersect this element, skip it
+                continue
             p_start, p_end = points[idx], points[idx + 1]
 
         direction = p_end - p_start

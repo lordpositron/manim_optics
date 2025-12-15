@@ -11,6 +11,28 @@ import numpy as np
 from manim import *
 
 
+def rotate_vector_2d(vector: np.ndarray, angle: float) -> np.ndarray:
+    """
+    Rotate a 2D vector by an angle around the z-axis.
+
+    Parameters
+    ----------
+    vector : np.ndarray
+        The vector to rotate (3D, but rotation is in xy-plane)
+    angle : float
+        Angle in radians
+
+    Returns
+    -------
+    np.ndarray
+        Rotated vector
+    """
+    cos_a = np.cos(angle)
+    sin_a = np.sin(angle)
+    x, y = vector[0], vector[1]
+    return np.array([x * cos_a - y * sin_a, x * sin_a + y * cos_a, vector[2]])
+
+
 class OpticalElement(VGroup, ABC):
     """
     Abstract base class for all optical elements.
@@ -223,7 +245,7 @@ class ThinLens(OpticalElement):
             color=self.color,
         )
 
-        # Create arrow tips at extremities using simple lines
+        # Create arrow tips at extremities
         tip_length = 0.3  # Length of arrow tip lines
         tip_angle = 30 * DEGREES  # Angle of arrow tips
 
@@ -233,61 +255,85 @@ class ThinLens(OpticalElement):
 
         if self.focal_length > 0:
             # Converging lens: >< (arrows pointing outward)
-            # Top extremity: arrows pointing outward (up-right and up-left)
+            # Top extremity: arrows pointing outward (forming a V pointing up-out)
+            # Right tip: from top going down-right
             top_right_tip = Line(
                 top_pos,
-                top_pos + rotate_vector(DOWN * tip_length, tip_angle, OUT),
-                stroke_width=3,
+                top_pos
+                + RIGHT * tip_length * np.sin(tip_angle)
+                + DOWN * tip_length * np.cos(tip_angle),
+                stroke_width=4,
                 color=self.color,
             )
+            # Left tip: from top going down-left
             top_left_tip = Line(
                 top_pos,
-                top_pos + rotate_vector(DOWN * tip_length, -tip_angle, OUT),
-                stroke_width=3,
+                top_pos
+                + LEFT * tip_length * np.sin(tip_angle)
+                + DOWN * tip_length * np.cos(tip_angle),
+                stroke_width=4,
                 color=self.color,
             )
 
-            # Bottom extremity: arrows pointing outward (down-right and down-left)
+            # Bottom extremity: arrows pointing outward (forming an inverted V pointing down-out)
+            # Right tip: from bottom going up-right
             bottom_right_tip = Line(
                 bottom_pos,
-                bottom_pos + rotate_vector(UP * tip_length, -tip_angle, OUT),
-                stroke_width=3,
+                bottom_pos
+                + RIGHT * tip_length * np.sin(tip_angle)
+                + UP * tip_length * np.cos(tip_angle),
+                stroke_width=4,
                 color=self.color,
             )
+            # Left tip: from bottom going up-left
             bottom_left_tip = Line(
                 bottom_pos,
-                bottom_pos + rotate_vector(UP * tip_length, tip_angle, OUT),
-                stroke_width=3,
+                bottom_pos
+                + LEFT * tip_length * np.sin(tip_angle)
+                + UP * tip_length * np.cos(tip_angle),
+                stroke_width=4,
                 color=self.color,
             )
 
         else:
             # Diverging lens: <> (arrows pointing inward)
-            # Top extremity: arrows pointing inward (down-right and down-left)
+            # Top extremity: arrows pointing inward (forming an inverted V pointing down-in)
+            # Right tip: from top going down-left (vers le centre)
             top_right_tip = Line(
                 top_pos,
-                top_pos + rotate_vector(DOWN * tip_length, -tip_angle, OUT),
-                stroke_width=3,
+                top_pos
+                + LEFT * tip_length * np.sin(tip_angle)
+                + DOWN * tip_length * np.cos(tip_angle),
+                stroke_width=4,
                 color=self.color,
             )
+            # Left tip: from top going down-right (vers le centre)
             top_left_tip = Line(
                 top_pos,
-                top_pos + rotate_vector(DOWN * tip_length, tip_angle, OUT),
-                stroke_width=3,
+                top_pos
+                + RIGHT * tip_length * np.sin(tip_angle)
+                + DOWN * tip_length * np.cos(tip_angle),
+                stroke_width=4,
                 color=self.color,
             )
 
-            # Bottom extremity: arrows pointing inward (up-right and up-left)
+            # Bottom extremity: arrows pointing inward (forming a V pointing up-in)
+            # Right tip: from bottom going up-left (vers le centre)
             bottom_right_tip = Line(
                 bottom_pos,
-                bottom_pos + rotate_vector(UP * tip_length, tip_angle, OUT),
-                stroke_width=3,
+                bottom_pos
+                + LEFT * tip_length * np.sin(tip_angle)
+                + UP * tip_length * np.cos(tip_angle),
+                stroke_width=4,
                 color=self.color,
             )
+            # Left tip: from bottom going up-right (vers le centre)
             bottom_left_tip = Line(
                 bottom_pos,
-                bottom_pos + rotate_vector(UP * tip_length, -tip_angle, OUT),
-                stroke_width=3,
+                bottom_pos
+                + RIGHT * tip_length * np.sin(tip_angle)
+                + UP * tip_length * np.cos(tip_angle),
+                stroke_width=4,
                 color=self.color,
             )
 
@@ -714,9 +760,11 @@ class SphericalMirror(Mirror):
             for i in range(num_lines):
                 y = (i - num_lines / 2 + 0.5) * self.mirror_height / num_lines
                 # 45° lines going from bottom-left to top-right
+                start_pos = RIGHT * 0.05 + UP * (y - line_length / 2)
+                end_pos = RIGHT * (0.05 + line_length) + UP * (y + line_length / 2)
                 small_line = Line(
-                    RIGHT * 0.05 + UP * (y - line_length / 2),
-                    RIGHT * (0.05 + line_length) + UP * (y + line_length / 2),
+                    start_pos,
+                    end_pos,
                     stroke_width=2,
                     color=GREY_C,
                 )
@@ -729,9 +777,11 @@ class SphericalMirror(Mirror):
             for i in range(num_lines):
                 y = (i - num_lines / 2 + 0.5) * self.mirror_height / num_lines
                 # 45° lines going from bottom-right to top-left
+                start_pos = LEFT * 0.05 + UP * (y - line_length / 2)
+                end_pos = LEFT * (0.05 + line_length) + UP * (y + line_length / 2)
                 small_line = Line(
-                    LEFT * 0.05 + UP * (y - line_length / 2),
-                    LEFT * (0.05 + line_length) + UP * (y + line_length / 2),
+                    start_pos,
+                    end_pos,
                     stroke_width=2,
                     color=GREY_C,
                 )
