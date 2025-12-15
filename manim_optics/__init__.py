@@ -22,6 +22,11 @@ from .optical_elements import (
     Mirror,
     PlaneMirror,
     SphericalMirror,
+    BeamStop,
+    LineBeamStop,
+    CircularAperture,
+    ArcBeamStop,
+    Eye,
 )
 
 from .rays import (
@@ -55,6 +60,13 @@ __all__ = [
     "Mirror",
     "PlaneMirror",
     "SphericalMirror",
+    # Beam stops
+    "BeamStop",
+    "LineBeamStop",
+    "CircularAperture",
+    "ArcBeamStop",
+    # Composite systems
+    "Eye",
     # Rays
     "DynamicRay",
     "RayBundle",

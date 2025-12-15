@@ -911,3 +911,603 @@ class SphericalMirror(Mirror):
         new_direction = new_direction / np.linalg.norm(new_direction)
 
         return new_direction, True
+
+
+# ==============================================================================
+# Beam Stops - Elements that block rays
+# ==============================================================================
+
+
+class BeamStop(OpticalElement):
+    """
+    Base class for elements that stop/block light rays.
+    
+    BeamStops do not refract or reflect light - they simply absorb it.
+    When a ray intersects a BeamStop, it is marked as terminated.
+    
+    Subclasses must implement:
+    - intersect(): Determine if ray hits the stop
+    - Visual representation
+    """
+    
+    def __init__(self, **kwargs):
+        """Initialize a beam stop."""
+        super().__init__(refractive_index_before=1.0, refractive_index_after=1.0, **kwargs)
+    
+    def get_transfer_matrix(self) -> np.ndarray:
+        """
+        BeamStops don't have a transfer matrix as they terminate rays.
+        
+        Returns identity matrix (though it shouldn't be used).
+        """
+        return np.array([[1.0, 0.0], [0.0, 1.0]])
+    
+    def propagate_ray(
+        self,
+        ray_start: np.ndarray,
+        ray_direction: np.ndarray,
+        intersection_point: np.ndarray,
+    ) -> tuple:
+        """
+        BeamStop terminates the ray - no propagation.
+        
+        Parameters
+        ----------
+        ray_start : np.ndarray
+            Starting position of the ray
+        ray_direction : np.ndarray
+            Direction vector of the ray
+        intersection_point : np.ndarray
+            Point where ray intersects the beam stop
+        
+        Returns
+        -------
+        tuple
+            (None, False) indicating the ray is stopped
+        """
+        return None, False
+    
+    def is_mirror(self) -> bool:
+        """BeamStops are not mirrors."""
+        return False
+
+
+class LineBeamStop(BeamStop):
+    """
+    Vertical line that stops rays.
+    
+    Useful for modeling:
+    - Screens
+    - Detectors
+    - Hard aperture edges
+    """
+    
+    def __init__(
+        self,
+        height: float = 3.0,
+        color=GREY_D,
+        stroke_width: float = 6,
+        **kwargs
+    ):
+        """
+        Initialize a line beam stop.
+        
+        Parameters
+        ----------
+        height : float
+            Height of the stopping line
+        color : str
+            Color of the line
+        stroke_width : float
+            Width of the line
+        """
+        super().__init__(**kwargs)
+        self.stop_height = height
+        self.color = color
+        self.stroke_width = stroke_width
+        
+        # Create visual representation
+        self._create_visual()
+    
+    def _create_visual(self):
+        """Create visual representation as a thick vertical line."""
+        stop_line = Line(
+            UP * self.stop_height / 2,
+            DOWN * self.stop_height / 2,
+            stroke_width=self.stroke_width,
+            color=self.color,
+        )
+        self.stop_line = stop_line
+        self.add(stop_line)
+    
+    def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
+        """
+        Check if ray intersects the vertical line.
+        
+        Parameters
+        ----------
+        ray_start : np.ndarray
+            Starting point of the ray
+        ray_direction : np.ndarray
+            Direction vector of the ray
+            
+        Returns
+        -------
+        tuple
+            (intersection_point, True) if hit, (None, False) otherwise
+        """
+        # Line is vertical at x = center
+        line_x = self.get_center()[0]
+        
+        if abs(ray_direction[0]) < 1e-10:
+            # Ray is parallel to line
+            return None, False
+        
+        # Calculate intersection parameter
+        t = (line_x - ray_start[0]) / ray_direction[0]
+        
+        if t < 0:
+            # Intersection behind ray start
+            return None, False
+        
+        intersection = ray_start + t * ray_direction
+        
+        # Check if within height
+        line_y = self.get_center()[1]
+        if abs(intersection[1] - line_y) > self.stop_height / 2:
+            return None, False
+        
+        return intersection, True
+
+
+class CircularAperture(BeamStop):
+    """
+    Circular aperture/diaphragm that blocks rays outside a circle.
+    
+    Rays passing through the center (within radius) are NOT stopped.
+    Rays hitting the opaque region (outside radius) ARE stopped.
+    
+    Useful for modeling:
+    - Iris/pupil of the eye
+    - Diaphragms
+    - Circular stops
+    """
+    
+    def __init__(
+        self,
+        radius: float = 0.5,
+        total_length: float = None,
+        line_color=GREY_D,
+        line_stroke_width: float = 4,
+        **kwargs
+    ):
+        """
+        Initialize a circular aperture.
+        
+        Parameters
+        ----------
+        radius : float
+            Radius of the aperture opening (vertical half-height)
+        total_length : float, optional
+            Total horizontal length of the blocking lines
+            If None, defaults to 8 * radius
+        line_color : str
+            Color of the blocking lines
+        line_stroke_width : float
+            Stroke width of the blocking lines
+        """
+        super().__init__(**kwargs)
+        self.aperture_radius = radius
+        self.total_length = total_length if total_length is not None else 8 * radius
+        self.line_color = line_color
+        self.line_stroke_width = line_stroke_width
+        
+        # Create visual representation
+        self._create_visual()
+    
+    def _create_visual(self):
+        """Create visual as two vertical line segments with gap in the center for the aperture."""
+        # The aperture is a circular opening viewed from the front
+        # We show it as two vertical line segments:
+        # - Top segment: from y = d/2 to y = D/2
+        # - Bottom segment: from y = -D/2 to y = -d/2
+        # Where D = total_length and d = 2*radius (aperture diameter)
+        
+        D = self.total_length
+        d = 2 * self.aperture_radius
+        
+        if d >= D:
+            # Opening is larger than total length, nothing to show
+            return
+        
+        # Top blocking line segment (from d/2 to D/2)
+        top_line = Line(
+            UP * d / 2,
+            UP * D / 2,
+            color=self.line_color,
+            stroke_width=self.line_stroke_width,
+        )
+        
+        # Bottom blocking line segment (from -d/2 to -D/2)
+        bottom_line = Line(
+            DOWN * d / 2,
+            DOWN * D / 2,
+            color=self.line_color,
+            stroke_width=self.line_stroke_width,
+        )
+        
+        # Add both lines
+        self.top_line = top_line
+        self.bottom_line = bottom_line
+        self.add(top_line, bottom_line)
+    
+    def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
+        """
+        Check if ray hits the opaque region (outside aperture radius).
+        
+        The aperture is in the xy-plane at z=0.
+        
+        Parameters
+        ----------
+        ray_start : np.ndarray
+            Starting point of the ray
+        ray_direction : np.ndarray
+            Direction vector of the ray
+            
+        Returns
+        -------
+        tuple
+            (intersection_point, True) if ray is BLOCKED (outside radius)
+            (None, False) if ray PASSES THROUGH (inside radius)
+        """
+        # Aperture plane is vertical at x = center
+        aperture_x = self.get_center()[0]
+        aperture_y = self.get_center()[1]
+        
+        if abs(ray_direction[0]) < 1e-10:
+            # Ray is parallel to aperture plane
+            return None, False
+        
+        # Calculate intersection with vertical plane
+        t = (aperture_x - ray_start[0]) / ray_direction[0]
+        
+        if t < 0:
+            # Intersection behind ray start
+            return None, False
+        
+        intersection = ray_start + t * ray_direction
+        
+        # Calculate distance from aperture center
+        dy = intersection[1] - aperture_y
+        distance_from_center = abs(dy)
+        
+        # Ray is blocked if OUTSIDE the aperture radius
+        if distance_from_center > self.aperture_radius:
+            return intersection, True
+        else:
+            # Ray passes through - not blocked
+            return None, False
+
+
+class ArcBeamStop(BeamStop):
+    """
+    Arc (portion of circle) that stops rays - useful for modeling curved screens/retina.
+    
+    The arc is centered at a point and has a radius of curvature.
+    Rays hitting the arc are stopped (absorbed).
+    
+    Useful for modeling:
+    - Retina of the eye
+    - Curved detectors
+    - Curved screens
+    """
+    
+    def __init__(
+        self,
+        radius: float = 2.0,
+        arc_angle: float = 120 * DEGREES,
+        color=RED_D,
+        stroke_width: float = 4,
+        **kwargs
+    ):
+        """
+        Initialize an arc beam stop.
+        
+        Parameters
+        ----------
+        radius : float
+            Radius of curvature of the arc
+        arc_angle : float
+            Angular extent of the arc (in radians)
+        color : str
+            Color of the arc
+        stroke_width : float
+            Width of the arc line
+        """
+        super().__init__(**kwargs)
+        self.arc_radius = radius
+        self.arc_angle = arc_angle
+        self.color = color
+        self.stroke_width = stroke_width
+        
+        # Track center of curvature (origin initially, will move with shifts)
+        self.curvature_center = np.array([0.0, 0.0, 0.0])
+        
+        # Create visual representation
+        self._create_visual()
+    
+    def _create_visual(self):
+        """Create visual as a curved arc."""
+        # Create arc centered at origin, then position it
+        arc = Arc(
+            radius=self.arc_radius,
+            start_angle=-self.arc_angle / 2,
+            angle=self.arc_angle,
+            color=self.color,
+            stroke_width=self.stroke_width,
+        )
+        self.arc = arc
+        self.add(arc)
+    
+    def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
+        """
+        Check if ray intersects the arc.
+        
+        Simplified approximation: treat arc as circle segment in 2D.
+        
+        Parameters
+        ----------
+        ray_start : np.ndarray
+            Starting point of the ray
+        ray_direction : np.ndarray
+            Direction vector of the ray
+            
+        Returns
+        -------
+        tuple
+            (intersection_point, True) if hit, (None, False) otherwise
+        """
+        # Calculate center of curvature from arc geometry
+        # The arc was created at origin, then shifted
+        # The center point at angle=0 of the arc is at distance arc_radius from origin
+        # After shifting, we need to find where the origin (center of curvature) ended up
+        
+        # Get the current position of the arc
+        # The arc spans from start_angle to start_angle+angle
+        # The center angle (0 degrees, pointing to the right) gives us a reference point
+        # This point is at (arc_radius, 0) from the curvature center
+        
+        # Use the arc object's position to infer curvature center
+        # The arc center (bounding box center) is not the same as curvature center
+        # But we can get arc points and work backwards
+        arc_points = self.arc.get_all_points()
+        if len(arc_points) == 0:
+            return None, False
+        
+        # Find the rightmost point (this is at angle=0, the reference)
+        rightmost_idx = np.argmax(arc_points[:, 0])
+        reference_point = arc_points[rightmost_idx][:2]  # 2D
+        
+        # The curvature center is at distance arc_radius to the LEFT of this point
+        arc_center_2d = reference_point - np.array([self.arc_radius, 0])
+        
+        # Convert to 2D for intersection calculation
+        ray_start_2d = ray_start[:2]
+        ray_dir_2d = ray_direction[:2]
+        
+        # Ray-circle intersection using quadratic formula
+        # Ray: P = P0 + t*d
+        # Circle: |P - C|^2 = R^2
+        # Substitute: |P0 + t*d - C|^2 = R^2
+        
+        oc = ray_start_2d - arc_center_2d
+        a = np.dot(ray_dir_2d, ray_dir_2d)
+        b = 2 * np.dot(oc, ray_dir_2d)
+        c = np.dot(oc, oc) - self.arc_radius ** 2
+        
+        discriminant = b**2 - 4*a*c
+        
+        if discriminant < 0:
+            # No intersection with circle
+            return None, False
+        
+        # Two solutions (ray can intersect circle at two points)
+        t1 = (-b - np.sqrt(discriminant)) / (2*a)
+        t2 = (-b + np.sqrt(discriminant)) / (2*a)
+        
+        # Check both intersections to see which (if any) are in the arc range
+        valid_intersections = []
+        
+        for t_val in [t1, t2]:
+            if t_val > 1e-10:  # Must be forward from ray start
+                # Calculate intersection point
+                intersection_2d = ray_start_2d + t_val * ray_dir_2d
+                
+                # Check if within arc angle range
+                rel_pos = intersection_2d - arc_center_2d
+                angle = np.arctan2(rel_pos[1], rel_pos[0])
+                
+                # Normalize angle to [-π, π]
+                angle = np.arctan2(np.sin(angle), np.cos(angle))
+                
+                # Check if within arc range
+                half_angle = self.arc_angle / 2
+                if -half_angle <= angle <= half_angle:
+                    valid_intersections.append((t_val, intersection_2d, angle))
+        
+        if len(valid_intersections) == 0:
+            # No valid intersection
+            return None, False
+        
+        # Take the closest valid intersection (smallest t)
+        valid_intersections.sort(key=lambda x: x[0])
+        t, intersection_2d, angle = valid_intersections[0]
+        
+        intersection = np.array([intersection_2d[0], intersection_2d[1], 0])
+        return intersection, True
+
+
+# ==============================================================================
+# Eye - Composite optical system
+# ==============================================================================
+
+
+class Eye(VGroup):
+    """
+    Simplified model of an eye for optical simulations.
+    
+    Components:
+    - Lens (cornea + crystalline lens simplified as thin lens)
+    - Optional CircularAperture (pupil/iris)
+    - ArcBeamStop (retina - curved detector)
+    
+    All components are positioned relative to the lens center.
+    Use get_optical_elements() to get the ordered list for ray tracing.
+    """
+    
+    def __init__(
+        self,
+        focal_length: float = 2.0,
+        lens_diameter: float = 1.0,
+        pupil_diameter: float = 0.4,
+        retina_radius: float = 2.3,
+        retina_angle: float = 100 * DEGREES,
+        include_pupil: bool = True,
+        lens_color=BLUE_C,
+        pupil_color=GREY_C,
+        retina_color=RED_D,
+        **kwargs
+    ):
+        """
+        Initialize an eye model.
+        
+        Parameters
+        ----------
+        focal_length : float
+            Focal length of the eye lens (cornea + crystalline)
+        lens_diameter : float
+            Diameter (height) of the lens
+        pupil_diameter : float
+            Diameter of the pupil aperture
+        retina_radius : float
+            Radius of curvature of the retina
+        retina_angle : float
+            Angular extent of the retina (in radians)
+        include_pupil : bool
+            Whether to include a pupil aperture
+        lens_color : str
+            Color of the lens
+        pupil_color : str
+            Color of the pupil
+        retina_color : str
+            Color of the retina
+        """
+        super().__init__(**kwargs)
+        
+        self.focal_length = focal_length
+        self.lens_diameter = lens_diameter
+        self.pupil_diameter = pupil_diameter
+        self.retina_radius = retina_radius
+        self.retina_angle = retina_angle
+        self.include_pupil = include_pupil
+        
+        # Create components
+        self._create_eye_components(lens_color, pupil_color, retina_color)
+    
+    def _create_eye_components(self, lens_color, pupil_color, retina_color):
+        """Create and position all eye components."""
+        
+        # 1. Lens (at origin, center of reference)
+        self.lens = ConvergingLens(
+            focal_length=self.focal_length,
+            height=self.lens_diameter,
+            color=lens_color,
+        )
+        self.lens.move_to(ORIGIN)
+        self.add(self.lens)
+        
+        # 2. Optional pupil (just after lens)
+        if self.include_pupil:
+            pupil_offset = 0.05  # Small offset from lens
+            # Pupil opening is the actual pupil diameter
+            self.pupil = CircularAperture(
+                radius=self.pupil_diameter / 2,
+                total_length=self.lens_diameter * 1.5,
+                line_color=pupil_color,
+                line_stroke_width=4,
+            )
+            
+            self.pupil.shift(RIGHT * pupil_offset)
+            self.add(self.pupil)
+        else:
+            self.pupil = None
+        
+        # 3. Retina (curved detector at back of eye)
+        # Position it so the light focuses on it
+        # For a simple model: retina is approximately at focal length from lens
+        # Reduced to 90% for better visual positioning
+        retina_distance = self.focal_length * 0.9
+        
+        self.retina = ArcBeamStop(
+            radius=self.retina_radius,
+            arc_angle=self.retina_angle,
+            color=retina_color,
+        )
+        # The arc is created with points at radius R from origin
+        # The closest point to the lens (at angle=0) is at x=R
+        # We want this point at retina_distance from the lens
+        # So we shift by (retina_distance - R)
+        self.retina.shift(RIGHT * (retina_distance - self.retina_radius))
+        self.add(self.retina)
+    
+    def get_optical_elements(self):
+        """
+        Get ordered list of optical elements for ray tracing.
+        
+        Returns
+        -------
+        list
+            [lens, pupil (optional), retina] in order of interaction
+        """
+        elements = [self.lens]
+        
+        if self.pupil is not None:
+            elements.append(self.pupil)
+        
+        elements.append(self.retina)
+        
+        return elements
+    
+    def set_focal_length(self, new_focal: float):
+        """
+        Update the focal length of the eye lens.
+        
+        This simulates accommodation (changing focus).
+        
+        Parameters
+        ----------
+        new_focal : float
+            New focal length
+        """
+        self.focal_length = new_focal
+        self.lens.focal_length = new_focal
+        return self
+    
+    def set_pupil_diameter(self, new_diameter: float):
+        """
+        Update pupil diameter (simulates dilation/constriction).
+        
+        Parameters
+        ----------
+        new_diameter : float
+            New pupil diameter
+        """
+        if self.pupil is not None:
+            self.pupil_diameter = new_diameter
+            self.pupil.aperture_radius = new_diameter / 2
+            # Recreate visual
+            self.pupil.remove(*self.pupil.submobjects)
+            self.pupil._create_visual()
+        return self
+
+
