@@ -253,18 +253,20 @@ class TestEyeAccommodation(Scene):
 
 class TestApertureCustomization(Scene):
     """Test CircularAperture customization options"""
-    
+
     def construct(self):
-        title = Text("CircularAperture - Customization Options", font_size=32).to_edge(UP)
+        title = Text("CircularAperture - Customization Options", font_size=32).to_edge(
+            UP
+        )
         self.add(title)
-        
+
         # Test 1: Different radii (opening sizes)
         subtitle1 = Text("Different Opening Sizes", font_size=20).shift(UP * 2.5)
         self.add(subtitle1)
-        
+
         radii = [0.3, 0.6, 0.9]
         x_positions = [-4, 0, 4]
-        
+
         for radius, x_pos in zip(radii, x_positions):
             aperture = CircularAperture(
                 radius=radius,
@@ -273,29 +275,33 @@ class TestApertureCustomization(Scene):
                 line_stroke_width=4,
             )
             aperture.shift(RIGHT * x_pos + UP * 0.5)
-            
+
             # Rays to show blocking
             rays = RayBundle(
-                start_points=[np.array([x_pos - 2, y, 0]) for y in np.linspace(-1.2, 1.2, 7)],
+                start_points=[
+                    np.array([x_pos - 2, y, 0]) for y in np.linspace(-1.2, 1.2, 7)
+                ],
                 direction_angle_deg=[0] * 7,
                 optical_elements=[aperture],
                 color=YELLOW,
                 stroke_width=2,
             )
-            
-            label = Text(f"radius={radius}", font_size=16).next_to(aperture, DOWN, buff=0.3)
+
+            label = Text(f"radius={radius}", font_size=16).next_to(
+                aperture, DOWN, buff=0.3
+            )
             self.add(aperture, rays, label)
-        
+
         # Test 2: Different line parameters
         subtitle2 = Text("Different Line Styles", font_size=20).shift(DOWN * 1)
         self.add(subtitle2)
-        
+
         configs = [
             (RED, 2, "Red, thin"),
             (GREEN, 6, "Green, thick"),
             (PURPLE, 10, "Purple, very thick"),
         ]
-        
+
         for i, (color, stroke, desc) in enumerate(configs):
             x_pos = -4 + i * 4
             aperture = CircularAperture(
@@ -305,8 +311,8 @@ class TestApertureCustomization(Scene):
                 line_stroke_width=stroke,
             )
             aperture.shift(RIGHT * x_pos + DOWN * 2)
-            
+
             label = Text(desc, font_size=14).next_to(aperture, DOWN, buff=0.3)
             self.add(aperture, label)
-        
+
         self.wait(1)
