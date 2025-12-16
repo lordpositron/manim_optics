@@ -41,10 +41,7 @@ class TestLinearGraticule(Scene):
         self.wait()
 
         # Fade out
-        self.play(
-            graticule.fade_out_animation(),
-            graticule2.fade_out_animation()
-        )
+        self.play(graticule.fade_out_animation(), graticule2.fade_out_animation())
         self.wait()
 
 
@@ -184,11 +181,7 @@ class TestGraticuleWithOptics(Scene):
         self.play(grid.create_animation(run_time=1.5, lag_ratio=0.01))
 
         # Add a lens
-        lens = ConvergingLens(
-            focal_length=2.0,
-            height=3.0,
-            color=BLUE_C
-        )
+        lens = ConvergingLens(focal_length=2.0, height=3.0, color=BLUE_C)
         lens.shift(RIGHT * 1)
 
         # Add rays
@@ -262,7 +255,9 @@ class TestGraticuleAngles(Scene):
         grat2.shift(DOWN * 1.5)
 
         label1 = Text("Tick angle: 60°", font_size=20).next_to(grat1, DOWN, buff=0.3)
-        label2 = Text("Global rotation: 30°", font_size=20).next_to(grat2, DOWN, buff=0.3)
+        label2 = Text("Global rotation: 30°", font_size=20).next_to(
+            grat2, DOWN, buff=0.3
+        )
 
         self.play(
             grat1.create_animation(run_time=2),

@@ -29,10 +29,7 @@ class TestShowMainLine(Scene):
             color=GREEN,
         ).shift(DOWN * 0.5)
 
-        self.play(
-            grat_no_line.create_animation(),
-            grat_with_line.create_animation()
-        )
+        self.play(grat_no_line.create_animation(), grat_with_line.create_animation())
         self.wait(2)
 
 
@@ -63,8 +60,7 @@ class TestShowMainLineCross(Scene):
         ).shift(RIGHT * 3.5)
 
         self.play(
-            cross_no_lines.create_animation(),
-            cross_with_lines.create_animation()
+            cross_no_lines.create_animation(), cross_with_lines.create_animation()
         )
         self.wait(2)
 
@@ -95,8 +91,5 @@ class TestShowMainLineGrid(Scene):
             color=GREEN,
         ).shift(RIGHT * 3.5)
 
-        self.play(
-            grid_no_frame.create_animation(),
-            grid_with_frame.create_animation()
-        )
+        self.play(grid_no_frame.create_animation(), grid_with_frame.create_animation())
         self.wait(2)
