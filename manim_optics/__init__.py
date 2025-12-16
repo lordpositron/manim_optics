@@ -14,21 +14,22 @@ Author: Corentin Nannini
 Date: December 2025
 """
 
-from .optical_elements import (
-    OpticalElement,
-    ThinLens,
-    ConvergingLens,
-    DivergingLens,
-    Mirror,
-    PlaneMirror,
-    SphericalMirror,
-    BeamStop,
-    LineBeamStop,
-    CircularAperture,
-    ArcBeamStop,
-    Eye,
-)
+# Base classes
+from .base import OpticalElement, rotate_vector_2d
 
+# Lenses
+from .lenses import ThinLens, ConvergingLens, DivergingLens
+
+# Mirrors
+from .mirrors import Mirror, PlaneMirror, SphericalMirror
+
+# Beam Stops
+from .beam_stops import BeamStop, LineBeamStop, CircularAperture, ArcBeamStop
+
+# Eye
+from .eye import Eye
+
+# Rays
 from .rays import (
     DynamicRay,
     RayBundle,
@@ -42,6 +43,7 @@ from .rays import (
     find_focal_point_from_rays,
 )
 
+# Scene utilities
 from .scene_utils import (
     OpticalScene,
     create_object_arrow,
@@ -52,11 +54,14 @@ from .scene_utils import (
 __version__ = "0.1.0"
 
 __all__ = [
-    # Optical elements
+    # Base
     "OpticalElement",
+    "rotate_vector_2d",
+    # Lenses
     "ThinLens",
     "ConvergingLens",
     "DivergingLens",
+    # Mirrors
     "Mirror",
     "PlaneMirror",
     "SphericalMirror",

@@ -207,6 +207,8 @@ class ThinLens(OpticalElement):
         refractive_index_before: float = 1.0,
         refractive_index_after: float = 1.0,
         color=BLUE,
+        tip_length: float = 0.3,
+        stroke_width: float = 3,
         **kwargs
     ):
         """
@@ -231,6 +233,8 @@ class ThinLens(OpticalElement):
         self.focal_length = focal_length
         self.lens_height = height
         self.color = color
+        self.tip_length = tip_length
+        self.stroke_width = stroke_width
 
         # Create visual representation
         self._create_lens_visual()
@@ -241,12 +245,12 @@ class ThinLens(OpticalElement):
         lens_line = Line(
             UP * self.lens_height / 2,
             DOWN * self.lens_height / 2,
-            stroke_width=4,
+            stroke_width=self.stroke_width,
             color=self.color,
         )
 
         # Create arrow tips at extremities
-        tip_length = 0.3  # Length of arrow tip lines
+        tip_length = self.tip_length  # Length of arrow tip lines
         tip_angle = 30 * DEGREES  # Angle of arrow tips
 
         # Top extremity position
@@ -262,7 +266,7 @@ class ThinLens(OpticalElement):
                 top_pos
                 + RIGHT * tip_length * np.sin(tip_angle)
                 + DOWN * tip_length * np.cos(tip_angle),
-                stroke_width=4,
+                stroke_width=self.stroke_width,
                 color=self.color,
             )
             # Left tip: from top going down-left
@@ -271,7 +275,7 @@ class ThinLens(OpticalElement):
                 top_pos
                 + LEFT * tip_length * np.sin(tip_angle)
                 + DOWN * tip_length * np.cos(tip_angle),
-                stroke_width=4,
+                stroke_width=self.stroke_width,
                 color=self.color,
             )
 
@@ -282,7 +286,7 @@ class ThinLens(OpticalElement):
                 bottom_pos
                 + RIGHT * tip_length * np.sin(tip_angle)
                 + UP * tip_length * np.cos(tip_angle),
-                stroke_width=4,
+                stroke_width=self.stroke_width,
                 color=self.color,
             )
             # Left tip: from bottom going up-left
@@ -291,7 +295,7 @@ class ThinLens(OpticalElement):
                 bottom_pos
                 + LEFT * tip_length * np.sin(tip_angle)
                 + UP * tip_length * np.cos(tip_angle),
-                stroke_width=4,
+                stroke_width=self.stroke_width,
                 color=self.color,
             )
 
@@ -304,7 +308,7 @@ class ThinLens(OpticalElement):
                 top_pos
                 + LEFT * tip_length * np.sin(tip_angle)
                 + DOWN * tip_length * np.cos(tip_angle),
-                stroke_width=4,
+                stroke_width=self.stroke_width,
                 color=self.color,
             )
             # Left tip: from top going down-right (vers le centre)
@@ -313,7 +317,7 @@ class ThinLens(OpticalElement):
                 top_pos
                 + RIGHT * tip_length * np.sin(tip_angle)
                 + DOWN * tip_length * np.cos(tip_angle),
-                stroke_width=4,
+                stroke_width=self.stroke_width,
                 color=self.color,
             )
 
@@ -324,7 +328,7 @@ class ThinLens(OpticalElement):
                 bottom_pos
                 + LEFT * tip_length * np.sin(tip_angle)
                 + UP * tip_length * np.cos(tip_angle),
-                stroke_width=4,
+                stroke_width=self.stroke_width,
                 color=self.color,
             )
             # Left tip: from bottom going up-right (vers le centre)
@@ -333,7 +337,7 @@ class ThinLens(OpticalElement):
                 bottom_pos
                 + RIGHT * tip_length * np.sin(tip_angle)
                 + UP * tip_length * np.cos(tip_angle),
-                stroke_width=4,
+                stroke_width=self.stroke_width,
                 color=self.color,
             )
 
@@ -1228,11 +1232,38 @@ class ArcBeamStop(BeamStop):
         self.color = color
         self.stroke_width = stroke_width
 
-        # Track center of curvature (origin initially, will move with shifts)
-        self.curvature_center = np.array([0.0, 0.0, 0.0])
+        # Store the center of curvature explicitly
+        # Initially at origin, updated when shifted
+        self._curvature_center = np.array([0.0, 0.0, 0.0])
 
         # Create visual representation
         self._create_visual()
+
+    def shift(self, *vectors):
+        """Override shift to update curvature center."""
+        # Apply shift to VGroup
+        super().shift(*vectors)
+
+        # Update curvature center
+        for vector in vectors:
+            self._curvature_center += vector
+
+        return self
+
+    def move_to(self, point_or_mobject, **kwargs):
+        """Override move_to to update curvature center."""
+        # Get current center before moving
+        old_center = self.get_center()
+
+        # Apply move
+        super().move_to(point_or_mobject, **kwargs)
+
+        # Calculate displacement and update curvature center
+        new_center = self.get_center()
+        displacement = new_center - old_center
+        self._curvature_center += displacement
+
+        return self
 
     def _create_visual(self):
         """Create visual as a curved arc."""
@@ -1251,98 +1282,148 @@ class ArcBeamStop(BeamStop):
         """
         Check if ray intersects the arc.
 
-        Simplified approximation: treat arc as circle segment in 2D.
+        Uses ray-circle intersection, then verifies if the point is within
+        the arc's angular range.
 
         Parameters
         ----------
         ray_start : np.ndarray
-            Starting point of the ray
+            Starting point of the ray (3D)
         ray_direction : np.ndarray
-            Direction vector of the ray
+            Direction vector of the ray (3D, should be normalized)
 
         Returns
         -------
         tuple
             (intersection_point, True) if hit, (None, False) otherwise
         """
-        # Calculate center of curvature from arc geometry
-        # The arc was created at origin, then shifted
-        # The center point at angle=0 of the arc is at distance arc_radius from origin
-        # After shifting, we need to find where the origin (center of curvature) ended up
-
-        # Get the current position of the arc
-        # The arc spans from start_angle to start_angle+angle
-        # The center angle (0 degrees, pointing to the right) gives us a reference point
-        # This point is at (arc_radius, 0) from the curvature center
-
-        # Use the arc object's position to infer curvature center
-        # The arc center (bounding box center) is not the same as curvature center
-        # But we can get arc points and work backwards
-        arc_points = self.arc.get_all_points()
-        if len(arc_points) == 0:
-            return None, False
-
-        # Find the rightmost point (this is at angle=0, the reference)
-        rightmost_idx = np.argmax(arc_points[:, 0])
-        reference_point = arc_points[rightmost_idx][:2]  # 2D
-
-        # The curvature center is at distance arc_radius to the LEFT of this point
-        arc_center_2d = reference_point - np.array([self.arc_radius, 0])
-
-        # Convert to 2D for intersection calculation
+        # Work in 2D (xy plane)
         ray_start_2d = ray_start[:2]
         ray_dir_2d = ray_direction[:2]
+        center_2d = self._curvature_center[:2]
 
-        # Ray-circle intersection using quadratic formula
-        # Ray: P = P0 + t*d
-        # Circle: |P - C|^2 = R^2
-        # Substitute: |P0 + t*d - C|^2 = R^2
+        # Normalize direction in 2D
+        ray_dir_2d_norm = np.linalg.norm(ray_dir_2d)
+        if ray_dir_2d_norm < 1e-10:
+            return None, False
+        ray_dir_2d = ray_dir_2d / ray_dir_2d_norm
 
-        oc = ray_start_2d - arc_center_2d
-        a = np.dot(ray_dir_2d, ray_dir_2d)
-        b = 2 * np.dot(oc, ray_dir_2d)
-        c = np.dot(oc, oc) - self.arc_radius**2
+        # Ray-circle intersection using geometric approach
+        # Vector from center to ray start
+        to_start = ray_start_2d - center_2d
 
-        discriminant = b**2 - 4 * a * c
+        # Project to_start onto ray direction
+        proj_length = np.dot(to_start, ray_dir_2d)
 
-        if discriminant < 0:
-            # No intersection with circle
+        # Closest point on ray to center
+        closest_point = ray_start_2d - proj_length * ray_dir_2d
+
+        # Distance from center to closest point
+        dist_to_ray = np.linalg.norm(center_2d - closest_point)
+
+        # Check if ray passes close enough to circle
+        if dist_to_ray > self.arc_radius + 1e-6:
             return None, False
 
-        # Two solutions (ray can intersect circle at two points)
-        t1 = (-b - np.sqrt(discriminant)) / (2 * a)
-        t2 = (-b + np.sqrt(discriminant)) / (2 * a)
+        # Calculate intersection distance along ray
+        # Using Pythagoras: d^2 + dist_to_ray^2 = radius^2
+        if dist_to_ray > self.arc_radius:
+            # Numerical error, treat as tangent
+            half_chord = 0
+        else:
+            half_chord = np.sqrt(self.arc_radius**2 - dist_to_ray**2)
 
-        # Check both intersections to see which (if any) are in the arc range
-        valid_intersections = []
+        # Two potential intersection parameters
+        t1 = -proj_length - half_chord
+        t2 = -proj_length + half_chord
 
-        for t_val in [t1, t2]:
-            if t_val > 1e-10:  # Must be forward from ray start
-                # Calculate intersection point
-                intersection_2d = ray_start_2d + t_val * ray_dir_2d
+        # Check both intersection points
+        for t in [t1, t2]:
+            if t < 1e-6:  # Skip points behind or at ray start
+                continue
 
-                # Check if within arc angle range
-                rel_pos = intersection_2d - arc_center_2d
-                angle = np.arctan2(rel_pos[1], rel_pos[0])
+            # Calculate intersection point
+            intersection_2d = ray_start_2d + t * ray_dir_2d
 
-                # Normalize angle to [-π, π]
-                angle = np.arctan2(np.sin(angle), np.cos(angle))
+            # Vector from center to intersection
+            to_intersection = intersection_2d - center_2d
 
-                # Check if within arc range
-                half_angle = self.arc_angle / 2
-                if -half_angle <= angle <= half_angle:
-                    valid_intersections.append((t_val, intersection_2d, angle))
+            # Calculate angle (0 is to the right, positive counterclockwise)
+            angle = np.arctan2(to_intersection[1], to_intersection[0])
 
-        if len(valid_intersections) == 0:
-            # No valid intersection
-            return None, False
+            # Arc spans from -arc_angle/2 to +arc_angle/2 (centered at 0°)
+            half_angle = self.arc_angle / 2
 
-        # Take the closest valid intersection (smallest t)
-        valid_intersections.sort(key=lambda x: x[0])
-        t, intersection_2d, angle = valid_intersections[0]
+            # Check if angle is within range
+            # Need to handle angle wrapping carefully
+            if -half_angle <= angle <= half_angle:
+                # Hit! Return this intersection
+                intersection_3d = np.array(
+                    [intersection_2d[0], intersection_2d[1], 0.0]
+                )
+                return intersection_3d, True
 
-        intersection = np.array([intersection_2d[0], intersection_2d[1], 0])
-        return intersection, True
+        # No valid intersection within arc range
+        return None, False
+
+    def get_debug_info(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> dict:
+        """
+        Get detailed debug information about ray-arc intersection.
+
+        Returns
+        -------
+        dict
+            Debug information including center, distances, angles, etc.
+        """
+        ray_start_2d = ray_start[:2]
+        ray_dir_2d = ray_direction[:2]
+        center_2d = self._curvature_center[:2]
+
+        ray_dir_2d = ray_dir_2d / (np.linalg.norm(ray_dir_2d) + 1e-10)
+
+        to_start = ray_start_2d - center_2d
+        proj_length = np.dot(to_start, ray_dir_2d)
+        closest_point = ray_start_2d - proj_length * ray_dir_2d
+        dist_to_ray = np.linalg.norm(center_2d - closest_point)
+
+        debug_info = {
+            "curvature_center": self._curvature_center.copy(),
+            "arc_radius": self.arc_radius,
+            "arc_angle_deg": np.degrees(self.arc_angle),
+            "ray_start": ray_start.copy(),
+            "ray_direction": ray_direction.copy(),
+            "distance_to_ray": dist_to_ray,
+            "closest_point_on_ray": np.array([closest_point[0], closest_point[1], 0.0]),
+        }
+
+        if dist_to_ray <= self.arc_radius:
+            half_chord = np.sqrt(self.arc_radius**2 - dist_to_ray**2)
+            t1 = -proj_length - half_chord
+            t2 = -proj_length + half_chord
+
+            intersections = []
+            for i, t in enumerate([t1, t2]):
+                if t >= 0:
+                    int_2d = ray_start_2d + t * ray_dir_2d
+                    to_int = int_2d - center_2d
+                    angle = np.arctan2(to_int[1], to_int[0])
+                    half_angle = self.arc_angle / 2
+                    in_range = -half_angle <= angle <= half_angle
+
+                    intersections.append(
+                        {
+                            "index": i,
+                            "t": t,
+                            "point": np.array([int_2d[0], int_2d[1], 0.0]),
+                            "angle_rad": angle,
+                            "angle_deg": np.degrees(angle),
+                            "in_arc_range": in_range,
+                        }
+                    )
+
+            debug_info["intersections"] = intersections
+
+        return debug_info
 
 
 # ==============================================================================
@@ -1368,12 +1449,10 @@ class Eye(VGroup):
         focal_length: float = 2.0,
         lens_diameter: float = 1.0,
         pupil_diameter: float = 0.4,
-        retina_radius: float = 2.3,
-        retina_angle: float = 100 * DEGREES,
         include_pupil: bool = True,
-        lens_color=BLUE_C,
-        pupil_color=GREY_C,
-        retina_color=RED_D,
+        lens_color=BLUE_D,
+        pupil_color=BLUE_C,
+        retina_color=WHITE,
         **kwargs
     ):
         """
@@ -1387,10 +1466,6 @@ class Eye(VGroup):
             Diameter (height) of the lens
         pupil_diameter : float
             Diameter of the pupil aperture
-        retina_radius : float
-            Radius of curvature of the retina
-        retina_angle : float
-            Angular extent of the retina (in radians)
         include_pupil : bool
             Whether to include a pupil aperture
         lens_color : str
@@ -1399,14 +1474,34 @@ class Eye(VGroup):
             Color of the pupil
         retina_color : str
             Color of the retina
+
+        Notes
+        -----
+        The retina radius and angle are calculated automatically from the focal length
+        using geometric relationships defined by lens_entering and aperture_entering parameters.
         """
         super().__init__(**kwargs)
 
         self.focal_length = focal_length
         self.lens_diameter = lens_diameter
         self.pupil_diameter = pupil_diameter
-        self.retina_radius = retina_radius
-        self.retina_angle = retina_angle
+
+        self.lens_entering = 0.2
+        self.aperture_enterring = 0.1
+
+        self.retina_radius = focal_length / (2 - self.lens_entering)
+
+        self.total_aperture_length = (
+            2
+            * self.retina_radius
+            * np.sqrt(self.aperture_enterring * (2 - self.aperture_enterring))
+        )
+
+        self.retina_angle = 2 * np.pi - 2 * np.arctan(
+            self.total_aperture_length
+            / (2 * self.retina_radius * (1 - self.aperture_enterring))
+        )
+
         self.include_pupil = include_pupil
 
         # Create components
@@ -1420,22 +1515,26 @@ class Eye(VGroup):
             focal_length=self.focal_length,
             height=self.lens_diameter,
             color=lens_color,
+            tip_length=0.1,
         )
         self.lens.move_to(ORIGIN)
         self.add(self.lens)
 
         # 2. Optional pupil (just after lens)
         if self.include_pupil:
-            pupil_offset = 0.05  # Small offset from lens
             # Pupil opening is the actual pupil diameter
             self.pupil = CircularAperture(
                 radius=self.pupil_diameter / 2,
-                total_length=self.lens_diameter * 1.5,
+                total_length=self.total_aperture_length,
                 line_color=pupil_color,
                 line_stroke_width=4,
             )
 
-            self.pupil.shift(RIGHT * pupil_offset)
+            self.pupil.shift(
+                RIGHT
+                * self.retina_radius
+                * (self.aperture_enterring - self.lens_entering)
+            )
             self.add(self.pupil)
         else:
             self.pupil = None
@@ -1443,19 +1542,14 @@ class Eye(VGroup):
         # 3. Retina (curved detector at back of eye)
         # Position it so the light focuses on it
         # For a simple model: retina is approximately at focal length from lens
-        # Reduced to 90% for better visual positioning
-        retina_distance = self.focal_length * 0.9
 
         self.retina = ArcBeamStop(
             radius=self.retina_radius,
             arc_angle=self.retina_angle,
             color=retina_color,
         )
-        # The arc is created with points at radius R from origin
-        # The closest point to the lens (at angle=0) is at x=R
-        # We want this point at retina_distance from the lens
-        # So we shift by (retina_distance - R)
-        self.retina.shift(RIGHT * (retina_distance - self.retina_radius))
+
+        self.retina.shift(RIGHT * self.retina_radius * (1 - self.lens_entering))
         self.add(self.retina)
 
     def get_optical_elements(self):
@@ -1506,4 +1600,30 @@ class Eye(VGroup):
             # Recreate visual
             self.pupil.remove(*self.pupil.submobjects)
             self.pupil._create_visual()
+        return self
+
+    def shift(self, *vectors):
+        """Override shift to update retina curvature center."""
+        # Apply shift to VGroup (which shifts all submobjects)
+        super().shift(*vectors)
+
+        # Manually update retina's curvature center
+        for vector in vectors:
+            self.retina._curvature_center += vector
+
+        return self
+
+    def move_to(self, point_or_mobject, aligned_edge=ORIGIN, clobber_submobjects=False):
+        """Override move_to to update retina curvature center."""
+        # Get displacement
+        old_center = self.get_center()
+
+        # Apply move_to to VGroup
+        super().move_to(point_or_mobject, aligned_edge, clobber_submobjects)
+
+        # Calculate displacement and update retina's curvature center
+        new_center = self.get_center()
+        displacement = new_center - old_center
+        self.retina._curvature_center += displacement
+
         return self

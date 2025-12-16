@@ -20,8 +20,6 @@ class TestEyeModel(Scene):
             focal_length=2.0,
             lens_diameter=1.0,
             pupil_diameter=1,
-            retina_radius=2.3,
-            retina_angle=100 * DEGREES,
             include_pupil=True,
         )
         eye.shift(RIGHT * 2)

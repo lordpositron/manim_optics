@@ -49,12 +49,52 @@ class OpticalScene(Scene):
         self.add(grid)
         return grid
 
+    def get_optical_axis_animation(
+        self,
+        length: float = 12.0,
+        color: str = GREY_C,
+        y_position: float = 0.0,
+        stroke_width: float = 2,
+    ) -> Animation:
+        """
+        Create an animation to add a horizontal optical axis to the scene.
+        Parameters
+        ----------
+        length : float
+            Length of the axis
+        color : str
+            Color of the axis
+        animate : bool
+            If True, animate the axis growing from center
+        y_position : float
+            Vertical position of the axis
+        Returns
+        -------
+        Animation
+            Animation to add the optical axis
+        """
+
+        # Start with a point at center
+        self.optical_axis = Line(
+            ORIGIN + UP * y_position,
+            ORIGIN + UP * y_position,
+            color=color,
+            stroke_width=stroke_width,
+        )
+        self.add(self.optical_axis)
+
+        return self.optical_axis.animate.put_start_and_end_on(
+            LEFT * length / 2 + UP * y_position,
+            RIGHT * length / 2 + UP * y_position,
+        )
+
     def setup_optical_axis(
         self,
         length: float = 12.0,
         color: str = GREY_C,
         animate: bool = False,
         y_position: float = 0.0,
+        stroke_width: float = 2,
     ):
         """
         Add a horizontal optical axis to the scene.
@@ -71,21 +111,15 @@ class OpticalScene(Scene):
             Vertical position of the axis
         """
         if animate:
-            # Start with a point at center
-            self.optical_axis = Line(
-                ORIGIN + UP * y_position,
-                ORIGIN + UP * y_position,
+            animation = self.get_optical_axis_animation(
+                length=length,
                 color=color,
-                stroke_width=2,
+                y_position=y_position,
+                stroke_width=stroke_width,
             )
-            self.add(self.optical_axis)
-
             # Animate it growing to full length
             self.play(
-                self.optical_axis.animate.put_start_and_end_on(
-                    LEFT * length / 2 + UP * y_position,
-                    RIGHT * length / 2 + UP * y_position,
-                ),
+                animation,
                 run_time=1.5,
             )
         else:
@@ -93,7 +127,7 @@ class OpticalScene(Scene):
                 LEFT * length / 2 + UP * y_position,
                 RIGHT * length / 2 + UP * y_position,
                 color=color,
-                stroke_width=2,
+                stroke_width=stroke_width,
             )
             self.add(self.optical_axis)
 

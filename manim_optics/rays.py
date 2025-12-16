@@ -88,6 +88,8 @@ class DynamicRay(VMobject):
         # Get current start position (dynamic or static)
         if isinstance(self.start_point_source, (VMobject, Mobject)):
             current_start = self.start_point_source.get_center()
+        elif callable(self.start_point_source):
+            current_start = self.start_point_source()
         else:
             current_start = np.array(self.start_point_source)
 
@@ -304,6 +306,7 @@ class RayBundle(VGroup):
 
         # Create angle offset tracker (additive to base angles)
         self.angle_offset_tracker = ValueTracker(0)
+        self.y_offset_tracker = ValueTracker(0)
 
         # Store base angles/directions for dynamic recalculation
         self._base_direction_angle_deg = direction_angle_deg
@@ -379,6 +382,9 @@ class RayBundle(VGroup):
             dir_list.copy() if isinstance(dir_list, list) else [dir_list]
         )
 
+        # Store base start points for y-offset tracking
+        self._base_start_list = start_list.copy()
+
         for idx, (start, base_direction) in enumerate(zip(start_list, dir_list)):
             # If we have angle-based directions, make them dynamic
             if (
@@ -406,8 +412,29 @@ class RayBundle(VGroup):
             else:
                 direction = base_direction
 
+            # Make start point dynamic to apply y_offset
+            # Create a closure that captures the base start point
+            def make_dynamic_start(base_start, ray_idx):
+                def get_start():
+                    # Get current y offset
+                    y_offset = self.y_offset_tracker.get_value()
+
+                    # Get base position
+                    if isinstance(base_start, (VMobject, Mobject)):
+                        base_pos = base_start.get_center()
+                    else:
+                        base_pos = np.array(base_start)
+
+                    # Apply y offset
+                    return base_pos + np.array([0, y_offset, 0])
+
+                return get_start
+
+            # Use dynamic start point
+            start_point = make_dynamic_start(start, idx)
+
             ray = DynamicRay(
-                start_point=start,
+                start_point=start_point,
                 direction=direction,
                 optical_elements=self.optical_elements,
                 **ray_kwargs,
