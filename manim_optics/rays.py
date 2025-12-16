@@ -465,10 +465,10 @@ class RayBundle(VGroup):
         for ray in self.rays:
             ray.stop_updating()
 
-    def resume_updating(self) -> None:
+    def resume_updating(self, recursive: bool = True) -> None:
         """Resume updating for all rays."""
         for ray in self.rays:
-            ray.resume_updating()
+            ray.resume_updating(recursive=recursive)
 
     def animate_propagation(
         self, run_time: float = 2.0, lag_ratio: float = 0.04, rate_func=linear

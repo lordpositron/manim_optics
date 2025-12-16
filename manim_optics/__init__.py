@@ -51,6 +51,14 @@ from .scene_utils import (
     calculate_image_position,
 )
 
+# Miscellaneous utilities
+from .miscellaneous import (
+    Graticule,
+    LinearGraticule,
+    CrossGraticule,
+    GridGraticule,
+)
+
 __version__ = "0.1.0"
 
 __all__ = [
@@ -88,4 +96,9 @@ __all__ = [
     "create_object_arrow",
     "create_image_arrow",
     "calculate_image_position",
+    # Miscellaneous
+    "Graticule",
+    "LinearGraticule",
+    "CrossGraticule",
+    "GridGraticule",
 ]
