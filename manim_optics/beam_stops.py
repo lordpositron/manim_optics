@@ -271,11 +271,16 @@ class CircularAperture(BeamStop):
         dy = intersection[1] - aperture_y
         distance_from_center = abs(dy)
 
-        # Ray is blocked if OUTSIDE the aperture radius
-        if distance_from_center > self.aperture_radius:
+        # Ray is blocked if it hits the blocking region
+        # Blocking regions: d/2 < |y| < D/2
+        # Where d = 2*aperture_radius, D = total_length
+        if (
+            distance_from_center > self.aperture_radius
+            and distance_from_center < self.total_length / 2
+        ):
             return intersection, True
         else:
-            # Ray passes through - not blocked
+            # Ray passes through aperture or misses entirely
             return None, False
 
 
