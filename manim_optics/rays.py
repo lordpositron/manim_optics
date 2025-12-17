@@ -171,6 +171,42 @@ class DynamicRay(VMobject):
                 [fallback_start, fallback_start + fallback_dir * self.ray_length]
             )
 
+    def set_optical_elements(self, optical_elements: List["OpticalElement"]) -> None:
+        """Update the list of optical elements and recalculate the ray path.
+
+        Parameters
+        ----------
+        optical_elements : List[OpticalElement]
+            New list of optical elements
+        """
+        self.optical_elements = optical_elements
+        # Force immediate recalculation
+        self._update_ray_path(None)
+
+    def add_optical_element(self, element: "OpticalElement") -> None:
+        """Add an optical element to the ray's interaction list.
+
+        Parameters
+        ----------
+        element : OpticalElement
+            Element to add
+        """
+        if element not in self.optical_elements:
+            self.optical_elements.append(element)
+            self._update_ray_path(None)
+
+    def remove_optical_element(self, element: "OpticalElement") -> None:
+        """Remove an optical element from the ray's interaction list.
+
+        Parameters
+        ----------
+        element : OpticalElement
+            Element to remove
+        """
+        if element in self.optical_elements:
+            self.optical_elements.remove(element)
+            self._update_ray_path(None)
+
     def stop_updating(self) -> None:
         """Remove the updater to freeze the ray."""
         self.clear_updaters()
@@ -459,6 +495,44 @@ class RayBundle(VGroup):
             # Single angle (scalar)
             rad = np.deg2rad(angles) if degrees else angles
             return np.array([np.cos(rad), np.sin(rad), 0])
+
+    def set_optical_elements(self, optical_elements: List["OpticalElement"]) -> None:
+        """Update the list of optical elements for all rays in the bundle.
+
+        Parameters
+        ----------
+        optical_elements : List[OpticalElement]
+            New list of optical elements
+        """
+        self.optical_elements = optical_elements
+        for ray in self.rays:
+            ray.set_optical_elements(optical_elements)
+
+    def add_optical_element(self, element: "OpticalElement") -> None:
+        """Add an optical element to all rays in the bundle.
+
+        Parameters
+        ----------
+        element : OpticalElement
+            Element to add
+        """
+        if element not in self.optical_elements:
+            self.optical_elements.append(element)
+        for ray in self.rays:
+            ray.add_optical_element(element)
+
+    def remove_optical_element(self, element: "OpticalElement") -> None:
+        """Remove an optical element from all rays in the bundle.
+
+        Parameters
+        ----------
+        element : OpticalElement
+            Element to remove
+        """
+        if element in self.optical_elements:
+            self.optical_elements.remove(element)
+        for ray in self.rays:
+            ray.remove_optical_element(element)
 
     def stop_updating(self) -> None:
         """Stop all rays from updating."""
