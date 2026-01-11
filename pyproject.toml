@@ -5,3 +5,6 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "manim-optics"
 version = "0.0.1"
+
+[tool.setuptools]
+packages = ["manim_optics"]

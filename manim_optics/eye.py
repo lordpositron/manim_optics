@@ -212,29 +212,3 @@ class Eye(VGroup):
             self.pupil.remove(*self.pupil.submobjects)
             self.pupil._create_visual()
         return self
-
-    def shift(self, *vectors):
-        """Override shift to update retina curvature center."""
-        # Apply shift to VGroup (which shifts all submobjects)
-        super().shift(*vectors)
-
-        # Manually update retina's curvature center
-        for vector in vectors:
-            self.retina._curvature_center += vector
-
-        return self
-
-    def move_to(self, point_or_mobject, aligned_edge=ORIGIN, clobber_submobjects=False):
-        """Override move_to to update retina curvature center."""
-        # Get displacement
-        old_center = self.get_center()
-
-        # Apply move_to to VGroup
-        super().move_to(point_or_mobject, aligned_edge, clobber_submobjects)
-
-        # Calculate displacement and update retina's curvature center
-        new_center = self.get_center()
-        displacement = new_center - old_center
-        self.retina._curvature_center += displacement
-
-        return self

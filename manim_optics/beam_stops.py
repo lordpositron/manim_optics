@@ -339,38 +339,12 @@ class ArcBeamStop(BeamStop):
         self.fill_color = fill_color
         self.fill_opacity = fill_opacity
 
-        # Store the center of curvature explicitly
-        # Initially at origin, updated when shifted
-        self._curvature_center = np.array([0.0, 0.0, 0.0])
+        # Cache for curvature center (for performance)
+        self._cached_center = None
+        self._cached_arc_position = None
 
         # Create visual representation
         self._create_visual()
-
-    def shift(self, *vectors):
-        """Override shift to update curvature center."""
-        # Apply shift to VGroup
-        super().shift(*vectors)
-
-        # Update curvature center
-        for vector in vectors:
-            self._curvature_center += vector
-
-        return self
-
-    def move_to(self, point_or_mobject, **kwargs):
-        """Override move_to to update curvature center."""
-        # Get current center before moving
-        old_center = self.get_center()
-
-        # Apply move
-        super().move_to(point_or_mobject, **kwargs)
-
-        # Calculate displacement and update curvature center
-        new_center = self.get_center()
-        displacement = new_center - old_center
-        self._curvature_center += displacement
-
-        return self
 
     def _create_visual(self):
         """Create visual as a curved arc."""
@@ -386,6 +360,72 @@ class ArcBeamStop(BeamStop):
         )
         self.arc = arc
         self.add(arc)
+
+    def get_curvature_center(self) -> np.ndarray:
+        """
+        Calculate the center of curvature dynamically with caching for performance.
+
+        This is computed from the current position of the arc, ensuring
+        it works correctly during animations where shift()/move_to() aren't called.
+        The result is cached and only recalculated when the arc moves.
+
+        Returns
+        -------
+        np.ndarray
+            Current center of curvature in 3D space
+        """
+        # Get a point on the arc to check if it moved
+        midpoint = self.arc.point_from_proportion(0.5)
+
+        # Check if we can use cached value
+        if (
+            self._cached_center is not None
+            and self._cached_arc_position is not None
+            and np.allclose(midpoint, self._cached_arc_position, atol=1e-6)
+        ):
+            return self._cached_center.copy()
+
+        # Simple and fast method: use 2 points to estimate tangent, then get normal
+        # Get two nearby points to calculate tangent direction
+        p1 = self.arc.point_from_proportion(0.45)
+        p2 = self.arc.point_from_proportion(0.55)
+
+        # Tangent vector at midpoint (approximated)
+        tangent = p2 - p1
+        tangent_norm = np.linalg.norm(tangent)
+
+        if tangent_norm < 1e-10:
+            # Fallback for degenerate case
+            curvature_center = midpoint - np.array([self.arc_radius, 0.0, 0.0])
+        else:
+            tangent = tangent / tangent_norm
+
+            # Normal vector (perpendicular to tangent in 2D, pointing inward)
+            # Two possible normals: [-tangent[1], tangent[0]] or [tangent[1], -tangent[0]]
+            normal1 = np.array([-tangent[1], tangent[0], 0.0])
+            normal2 = np.array([tangent[1], -tangent[0], 0.0])
+
+            # The correct normal points from the arc toward the center
+            # Test which direction makes sense by checking which gives radius distance
+            # Or simpler: the center should be on the concave side
+            # Get a third point to determine concavity
+            p_test = self.arc.point_from_proportion(0.0)
+
+            # Calculate potential centers
+            center1 = midpoint + self.arc_radius * normal1
+            center2 = midpoint + self.arc_radius * normal2
+
+            # The correct center is the one that's approximately at radius distance from p_test
+            dist1 = abs(np.linalg.norm(p_test - center1) - self.arc_radius)
+            dist2 = abs(np.linalg.norm(p_test - center2) - self.arc_radius)
+
+            curvature_center = center1 if dist1 < dist2 else center2
+
+        # Cache the result
+        self._cached_center = curvature_center.copy()
+        self._cached_arc_position = midpoint.copy()
+
+        return curvature_center
 
     def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
         """
@@ -409,7 +449,9 @@ class ArcBeamStop(BeamStop):
         # Work in 2D (xy plane)
         ray_start_2d = ray_start[:2]
         ray_dir_2d = ray_direction[:2]
-        center_2d = self._curvature_center[:2]
+
+        # Get current curvature center (dynamically calculated)
+        center_2d = self.get_curvature_center()[:2]
 
         # Normalize direction in 2D
         ray_dir_2d_norm = np.linalg.norm(ray_dir_2d)
@@ -486,7 +528,7 @@ class ArcBeamStop(BeamStop):
         """
         ray_start_2d = ray_start[:2]
         ray_dir_2d = ray_direction[:2]
-        center_2d = self._curvature_center[:2]
+        center_2d = self.get_curvature_center()[:2]
 
         ray_dir_2d = ray_dir_2d / (np.linalg.norm(ray_dir_2d) + 1e-10)
 
@@ -496,7 +538,7 @@ class ArcBeamStop(BeamStop):
         dist_to_ray = np.linalg.norm(center_2d - closest_point)
 
         debug_info = {
-            "curvature_center": self._curvature_center.copy(),
+            "curvature_center": self.get_curvature_center().copy(),
             "arc_radius": self.arc_radius,
             "arc_angle_deg": np.degrees(self.arc_angle),
             "ray_start": ray_start.copy(),
