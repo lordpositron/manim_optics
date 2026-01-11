@@ -521,6 +521,17 @@ class RayBundle(VGroup):
         for ray in self.rays:
             ray.add_optical_element(element)
 
+    def add_optical_elements(self, elements: List["OpticalElement"]) -> None:
+        """Add multiple optical elements to all rays in the bundle.
+
+        Parameters
+        ----------
+        elements : List[OpticalElement]
+            Elements to add
+        """
+        for element in elements:
+            self.add_optical_element(element)
+
     def remove_optical_element(self, element: "OpticalElement") -> None:
         """Remove an optical element from all rays in the bundle.
 
@@ -533,6 +544,17 @@ class RayBundle(VGroup):
             self.optical_elements.remove(element)
         for ray in self.rays:
             ray.remove_optical_element(element)
+
+    def remove_optical_elements(self, elements: List["OpticalElement"]) -> None:
+        """Remove multiple optical elements from all rays in the bundle.
+
+        Parameters
+        ----------
+        elements : List[OpticalElement]
+            Elements to remove
+        """
+        for element in elements:
+            self.remove_optical_element(element)
 
     def stop_updating(self) -> None:
         """Stop all rays from updating."""
@@ -1396,8 +1418,8 @@ class ImageFormation(VGroup):
         show_focal_point: bool = False,
         show_image_arrow: bool = True,
         optical_axis_y: float = 0.0,
-        focal_point_color: str = GREEN,
-        image_arrow_color: str = GREEN,
+        focal_point_color: str = BLUE,
+        image_arrow_color: str = BLUE,
         extension_color: Optional[str] = None,
         **kwargs,
     ):

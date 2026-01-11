@@ -283,6 +283,16 @@ class CircularAperture(BeamStop):
             # Ray passes through aperture or misses entirely
             return None, False
 
+    def get_top_coordinates(self) -> np.ndarray:
+        """Get the top coordinate of the aperture opening."""
+        center = self.get_center()
+        return center + np.array([0.0, self.total_length / 2, 0.0])
+
+    def get_bottom_coordinates(self) -> np.ndarray:
+        """Get the bottom coordinate of the aperture opening."""
+        center = self.get_center()
+        return center + np.array([0.0, -self.total_length / 2, 0.0])
+
 
 class ArcBeamStop(BeamStop):
     """
@@ -301,8 +311,10 @@ class ArcBeamStop(BeamStop):
         self,
         radius: float = 2.0,
         arc_angle: float = 120 * DEGREES,
-        color=RED_D,
+        stroke_color=RED_D,
         stroke_width: float = 4,
+        fill_color=None,
+        fill_opacity: float = 0.0,
         **kwargs
     ):
         """
@@ -322,8 +334,10 @@ class ArcBeamStop(BeamStop):
         super().__init__(**kwargs)
         self.arc_radius = radius
         self.arc_angle = arc_angle
-        self.color = color
+        self.stroke_color = stroke_color
         self.stroke_width = stroke_width
+        self.fill_color = fill_color
+        self.fill_opacity = fill_opacity
 
         # Store the center of curvature explicitly
         # Initially at origin, updated when shifted
@@ -365,8 +379,10 @@ class ArcBeamStop(BeamStop):
             radius=self.arc_radius,
             start_angle=-self.arc_angle / 2,
             angle=self.arc_angle,
-            color=self.color,
+            stroke_color=self.stroke_color,
             stroke_width=self.stroke_width,
+            fill_color=self.fill_color,
+            fill_opacity=self.fill_opacity,
         )
         self.arc = arc
         self.add(arc)

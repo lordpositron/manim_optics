@@ -33,6 +33,7 @@ class ThinLens(OpticalElement):
         color=BLUE,
         tip_length: float = 0.3,
         stroke_width: float = 3,
+        show_focal_points: bool = True,
         **kwargs
     ):
         """
@@ -59,7 +60,7 @@ class ThinLens(OpticalElement):
         self.color = color
         self.tip_length = tip_length
         self.stroke_width = stroke_width
-
+        self.show_focal_points = show_focal_points
         # Create visual representation
         self._create_lens_visual()
 
@@ -166,6 +167,7 @@ class ThinLens(OpticalElement):
             )
 
         # Add focal points markers (small dots)
+
         if self.focal_length > 0:
             left_focal = Dot(
                 LEFT * abs(self.focal_length), color=self.color, radius=0.05
@@ -180,6 +182,13 @@ class ThinLens(OpticalElement):
             right_focal = Dot(
                 RIGHT * abs(self.focal_length), color=self.color, radius=0.05
             )
+
+        if self.show_focal_points:
+            left_focal.set_opacity(1)
+            right_focal.set_opacity(1)
+        else:
+            left_focal.set_opacity(0)
+            right_focal.set_opacity(0)
         # Store components for animation
         self.lens_line = lens_line
         self.top_right_tip = top_right_tip

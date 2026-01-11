@@ -166,20 +166,6 @@ class TestGraticuleWithOptics(Scene):
         title = Text("Graticule + Optics", font_size=32).to_edge(UP)
         self.add(title)
 
-        # Create a grid background
-        grid = GridGraticule(
-            width=12,
-            height=6,
-            unit_length=0.5,
-            primary_interval=2,
-            secondary_interval=1,
-            color=GREY_D,
-            grid_stroke_width=0.5,
-            show_labels=False,
-        )
-
-        self.play(grid.create_animation(run_time=1.5, lag_ratio=0.01))
-
         # Add a lens
         lens = ConvergingLens(focal_length=2.0, height=3.0, color=BLUE_C)
         lens.shift(RIGHT * 1)
@@ -203,12 +189,13 @@ class TestGraticuleWithOptics(Scene):
             length=4,
             unit_length=0.5,
             primary_interval=1,
-            secondary_interval=0.5,
-            tick_position="centered",
-            color=RED,
+            secondary_interval=0.1,
+            tick_position="left",
+            color=WHITE,
             show_labels=True,
             decimal_places=1,
             label_font_size=14,
+            global_angle=0 * DEGREES,
         )
         focal_graticule.shift(RIGHT * 3)
 
@@ -216,7 +203,7 @@ class TestGraticuleWithOptics(Scene):
         self.wait(2)
 
         # Fade all
-        self.play(FadeOut(VGroup(grid, lens, rays, focal_graticule)))
+        self.play(FadeOut(VGroup(lens, rays, focal_graticule)))
         self.wait()
 
 

@@ -30,9 +30,14 @@ class Eye(VGroup):
         lens_diameter: float = 1.0,
         pupil_diameter: float = 0.4,
         include_pupil: bool = True,
+        focal_delta: float = 0.0,
+        show_focal_point: bool = False,
+        show_cornea: bool = False,
+        cornea_thickness: float = 0.1,
         lens_color=BLUE_D,
         pupil_color=BLUE_C,
         retina_color=WHITE,
+        fill_color=BLUE_D,
         **kwargs
     ):
         """
@@ -65,11 +70,23 @@ class Eye(VGroup):
         self.focal_length = focal_length
         self.lens_diameter = lens_diameter
         self.pupil_diameter = pupil_diameter
+        self.delta_focal = focal_delta
+        self.show_focal_point = show_focal_point
+        self.fill_color = fill_color
+        self.retina_color = retina_color
+        self.lens_color = lens_color
+        self.pupil_color = pupil_color
+        self.fill_opacity = 0.0
+        if self.fill_color is not None:
+            self.fill_opacity = 0.2
+
+        self.show_cornea = show_cornea
+        self.cornea_thickness = cornea_thickness
 
         self.lens_entering = 0.2
         self.aperture_enterring = 0.1
 
-        self.retina_radius = focal_length / (2 - self.lens_entering)
+        self.retina_radius = (focal_length - focal_delta) / (2 - self.lens_entering)
 
         self.total_aperture_length = (
             2
@@ -85,17 +102,18 @@ class Eye(VGroup):
         self.include_pupil = include_pupil
 
         # Create components
-        self._create_eye_components(lens_color, pupil_color, retina_color)
+        self._create_eye_components()
 
-    def _create_eye_components(self, lens_color, pupil_color, retina_color):
+    def _create_eye_components(self):
         """Create and position all eye components."""
 
         # 1. Lens (at origin, center of reference)
         self.lens = ConvergingLens(
             focal_length=self.focal_length,
             height=self.lens_diameter,
-            color=lens_color,
+            color=self.lens_color,
             tip_length=0.1,
+            show_focal_points=self.show_focal_point,
         )
         self.lens.move_to(ORIGIN)
         self.add(self.lens)
@@ -106,7 +124,7 @@ class Eye(VGroup):
             self.pupil = CircularAperture(
                 radius=self.pupil_diameter / 2,
                 total_length=self.total_aperture_length,
-                line_color=pupil_color,
+                line_color=self.pupil_color,
                 line_stroke_width=4,
             )
 
@@ -116,6 +134,17 @@ class Eye(VGroup):
                 * (self.aperture_enterring - self.lens_entering)
             )
             self.add(self.pupil)
+            if self.show_cornea:
+                self.cornea = ArcBetweenPoints(
+                    self.pupil.get_top_coordinates(),
+                    self.pupil.get_bottom_coordinates(),
+                    radius=self.total_aperture_length / 1.5,
+                    stroke_width=0,
+                    fill_color=self.fill_color,
+                    fill_opacity=self.fill_opacity,
+                )
+                self.cornea.next_to(self.pupil, LEFT, buff=0)
+                self.add(self.cornea)
         else:
             self.pupil = None
 
@@ -126,7 +155,9 @@ class Eye(VGroup):
         self.retina = ArcBeamStop(
             radius=self.retina_radius,
             arc_angle=self.retina_angle,
-            color=retina_color,
+            fill_color=self.fill_color,
+            fill_opacity=self.fill_opacity,
+            stroke_color=self.retina_color,
         )
 
         self.retina.shift(RIGHT * self.retina_radius * (1 - self.lens_entering))

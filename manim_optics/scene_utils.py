@@ -239,6 +239,8 @@ class OpticalScene(Scene):
             self.play(Write(label_text), run_time=run_time)
         else:
             self.add(label_text)
+
+        label_text.add_updater(lambda m: m.next_to(obj, direction, buff=buff))
         return label_text
 
 
