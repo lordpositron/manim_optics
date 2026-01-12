@@ -6,10 +6,15 @@ This module implements rays that automatically update their paths when
 optical elements move or change.
 """
 
+from __future__ import annotations
+
 import numpy as np
 from manim import *
-from typing import List, Optional, Union, Callable, Tuple
+from typing import List, Optional, Union, Callable, Tuple, TYPE_CHECKING
 from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from .base import OpticalElement
 
 
 class DynamicRay(VMobject):
@@ -30,11 +35,12 @@ class DynamicRay(VMobject):
         self,
         start_point: Union[NDArray[np.floating], Mobject],
         direction: Union[NDArray[np.floating], Callable[[], NDArray[np.floating]]],
-        optical_elements: Optional[List["OpticalElement"]] = None,
+        optical_elements: Optional[List[OpticalElement]] = None,
         max_segments: int = 10,
         ray_length: float = 100.0,
         color: str = YELLOW,
         stroke_width: float = 2,
+        opacity: float = 1.0,
         **kwargs,
     ):
         """
@@ -69,9 +75,10 @@ class DynamicRay(VMobject):
         self.optical_elements = optical_elements or []
         self.max_segments = max_segments
         self.ray_length = ray_length
+        self.opacity = opacity
 
         # Visual properties
-        self.set_stroke(color=color, width=stroke_width)
+        self.set_stroke(color=color, width=stroke_width, opacity=opacity)
 
         # Calculate initial path
         self._update_ray_path(None)
@@ -171,7 +178,7 @@ class DynamicRay(VMobject):
                 [fallback_start, fallback_start + fallback_dir * self.ray_length]
             )
 
-    def set_optical_elements(self, optical_elements: List["OpticalElement"]) -> None:
+    def set_optical_elements(self, optical_elements: List[OpticalElement]) -> None:
         """Update the list of optical elements and recalculate the ray path.
 
         Parameters
@@ -183,7 +190,7 @@ class DynamicRay(VMobject):
         # Force immediate recalculation
         self._update_ray_path(None)
 
-    def add_optical_element(self, element: "OpticalElement") -> None:
+    def add_optical_element(self, element: OpticalElement) -> None:
         """Add an optical element to the ray's interaction list.
 
         Parameters
@@ -195,7 +202,7 @@ class DynamicRay(VMobject):
             self.optical_elements.append(element)
             self._update_ray_path(None)
 
-    def remove_optical_element(self, element: "OpticalElement") -> None:
+    def remove_optical_element(self, element: OpticalElement) -> None:
         """Remove an optical element from the ray's interaction list.
 
         Parameters
@@ -287,7 +294,7 @@ class RayBundle(VGroup):
         direction_angle_rad: Optional[Union[float, List[float]]] = None,
         direction_angle_deg: Optional[Union[float, List[float]]] = None,
         num_rays: Optional[int] = None,
-        optical_elements: Optional[List["OpticalElement"]] = None,
+        optical_elements: Optional[List[OpticalElement]] = None,
         **ray_kwargs,
     ):
         """
@@ -339,6 +346,9 @@ class RayBundle(VGroup):
         )
         """
         super().__init__()
+
+        # Extract opacity from ray_kwargs if present (to apply after ray creation)
+        bundle_opacity = ray_kwargs.pop("opacity", None)
 
         # Create angle offset tracker (additive to base angles)
         self.angle_offset_tracker = ValueTracker(0)
@@ -478,6 +488,10 @@ class RayBundle(VGroup):
             self.rays.append(ray)
             self.add(ray)
 
+        # Apply bundle opacity to all rays after creation
+        if bundle_opacity is not None:
+            self.set_opacity(bundle_opacity)
+
     def _angles_to_vectors(
         self,
         angles: Union[float, List[float], Tuple[float, ...], NDArray[np.floating]],
@@ -496,7 +510,7 @@ class RayBundle(VGroup):
             rad = np.deg2rad(angles) if degrees else angles
             return np.array([np.cos(rad), np.sin(rad), 0])
 
-    def set_optical_elements(self, optical_elements: List["OpticalElement"]) -> None:
+    def set_optical_elements(self, optical_elements: List[OpticalElement]) -> None:
         """Update the list of optical elements for all rays in the bundle.
 
         Parameters
@@ -508,7 +522,7 @@ class RayBundle(VGroup):
         for ray in self.rays:
             ray.set_optical_elements(optical_elements)
 
-    def add_optical_element(self, element: "OpticalElement") -> None:
+    def add_optical_element(self, element: OpticalElement) -> None:
         """Add an optical element to all rays in the bundle.
 
         Parameters
@@ -521,7 +535,7 @@ class RayBundle(VGroup):
         for ray in self.rays:
             ray.add_optical_element(element)
 
-    def add_optical_elements(self, elements: List["OpticalElement"]) -> None:
+    def add_optical_elements(self, elements: List[OpticalElement]) -> None:
         """Add multiple optical elements to all rays in the bundle.
 
         Parameters
@@ -532,7 +546,7 @@ class RayBundle(VGroup):
         for element in elements:
             self.add_optical_element(element)
 
-    def remove_optical_element(self, element: "OpticalElement") -> None:
+    def remove_optical_element(self, element: OpticalElement) -> None:
         """Remove an optical element from all rays in the bundle.
 
         Parameters
@@ -545,7 +559,7 @@ class RayBundle(VGroup):
         for ray in self.rays:
             ray.remove_optical_element(element)
 
-    def remove_optical_elements(self, elements: List["OpticalElement"]) -> None:
+    def remove_optical_elements(self, elements: List[OpticalElement]) -> None:
         """Remove multiple optical elements from all rays in the bundle.
 
         Parameters
@@ -565,6 +579,57 @@ class RayBundle(VGroup):
         """Resume updating for all rays."""
         for ray in self.rays:
             ray.resume_updating(recursive=recursive)
+
+    def set_opacity(self, opacity: float, family: bool = True) -> "RayBundle":
+        """
+        Set the opacity of all rays in the bundle.
+
+        Parameters
+        ----------
+        opacity : float
+            Opacity value (0 = transparent, 1 = opaque)
+        family : bool
+            If True, applies to all submobjects (default: True)
+
+        Returns
+        -------
+        RayBundle
+            Self (for chaining)
+        """
+        for ray in self.rays:
+            ray.set_stroke(opacity=opacity)
+            ray.opacity = opacity
+        return self
+
+    def set_stroke(self, color=None, width=None, opacity=None, **kwargs) -> "RayBundle":
+        """
+        Set stroke properties for all rays in the bundle.
+
+        Parameters
+        ----------
+        color : str, optional
+            Color of the rays
+        width : float, optional
+            Stroke width of the rays
+        opacity : float, optional
+            Opacity of the rays
+        **kwargs
+            Additional stroke properties
+
+        Returns
+        -------
+        RayBundle
+            Self (for chaining)
+        """
+        # Check if rays exist (they won't exist during __init__)
+        if not hasattr(self, "rays"):
+            return self
+
+        for ray in self.rays:
+            ray.set_stroke(color=color, width=width, opacity=opacity, **kwargs)
+            if opacity is not None:
+                ray.opacity = opacity
+        return self
 
     def animate_propagation(
         self, run_time: float = 2.0, lag_ratio: float = 0.04, rate_func=linear
@@ -768,7 +833,7 @@ def create_parallel_bundle(
     spacing: float = 0.5,
     start_x: float = -5.0,
     direction: NDArray[np.floating] = RIGHT,
-    optical_elements: Optional[List["OpticalElement"]] = None,
+    optical_elements: Optional[List[OpticalElement]] = None,
     **ray_kwargs,
 ) -> RayBundle:
     """
@@ -811,7 +876,7 @@ def create_diverging_bundle(
     source_point: Union[NDArray[np.floating], Mobject],
     angle_range_deg: Tuple[float, float] = (-30, 30),
     num_rays: int = 5,
-    optical_elements: Optional[List["OpticalElement"]] = None,
+    optical_elements: Optional[List[OpticalElement]] = None,
     **ray_kwargs,
 ) -> RayBundle:
     """
