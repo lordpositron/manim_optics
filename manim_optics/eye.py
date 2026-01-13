@@ -86,7 +86,15 @@ class Eye(VGroup):
         self.lens_entering = 0.2
         self.aperture_enterring = 0.1
 
-        self.retina_radius = (focal_length - focal_delta) / (2 - self.lens_entering)
+        # Store initial focal length for geometry calculation
+        # These geometric parameters should NOT change during accommodation
+        self._initial_focal_length = focal_length
+
+        # Calculate fixed geometric parameters based on initial focal length
+        # These define the physical structure of the eye and remain constant
+        self.retina_radius = (self._initial_focal_length - focal_delta) / (
+            2 - self.lens_entering
+        )
 
         self.total_aperture_length = (
             2
@@ -183,7 +191,7 @@ class Eye(VGroup):
 
     def set_focal_length(self, new_focal: float):
         """
-        Update the focal length of the eye lens.
+        Update the focal length of the eye lens immediately.
 
         This simulates accommodation (changing focus).
 
@@ -191,24 +199,101 @@ class Eye(VGroup):
         ----------
         new_focal : float
             New focal length
+
+        Returns
+        -------
+        Eye
+            Self (for chaining)
         """
         self.focal_length = new_focal
-        self.lens.focal_length = new_focal
+        self.lens.set_focal_length(new_focal)
         return self
 
-    def set_pupil_diameter(self, new_diameter: float):
+    def animate_focal_length(self, new_focal: float, run_time: float = 2.0, **kwargs):
+        """Animate a change in focal length (accommodation).
+
+        This simulates the eye's accommodation process where the crystalline
+        lens changes shape to focus at different distances.
+
+        Parameters
+        ----------
+        new_focal : float
+            Target focal length
+        run_time : float
+            Duration of the animation (accommodation time)
+        **kwargs
+            Additional arguments for the animation
+
+        Returns
+        -------
+        Animation
+            Animation that changes the eye's focal length
+
+        Example
+        -------
+        >>> eye = Eye(focal_length=2.0)
+        >>> # Animate accommodation to near vision
+        >>> scene.play(eye.animate_focal_length(1.5, run_time=1.0))
+        >>> # Animate accommodation to far vision
+        >>> scene.play(eye.animate_focal_length(2.5, run_time=1.0))
         """
-        Update pupil diameter (simulates dilation/constriction).
+        # Also update the Eye's focal_length attribute when animation completes
+        self.focal_length = new_focal
+
+        # Return the lens animation
+        return self.lens.animate_focal_length(new_focal, run_time=run_time, **kwargs)
+
+    def set_pupil_diameter(self, new_diameter: float):
+        """Update pupil diameter immediately (simulates dilation/constriction).
 
         Parameters
         ----------
         new_diameter : float
             New pupil diameter
+
+        Returns
+        -------
+        Eye
+            Self (for chaining)
         """
         if self.pupil is not None:
             self.pupil_diameter = new_diameter
-            self.pupil.aperture_radius = new_diameter / 2
-            # Recreate visual
-            self.pupil.remove(*self.pupil.submobjects)
-            self.pupil._create_visual()
+            self.pupil.set_radius(new_diameter / 2)
         return self
+
+    def animate_pupil_diameter(
+        self, new_diameter: float, run_time: float = 2.0, **kwargs
+    ):
+        """Animate a change in pupil diameter (dilation/constriction).
+
+        This simulates the iris muscles contracting or relaxing to change
+        the pupil size in response to light conditions.
+
+        Parameters
+        ----------
+        new_diameter : float
+            Target pupil diameter
+        run_time : float
+            Duration of the animation
+        **kwargs
+            Additional arguments for the animation
+
+        Returns
+        -------
+        Animation
+            Animation that changes the pupil diameter
+
+        Example
+        -------
+        >>> eye = Eye(pupil_diameter=0.4)
+        >>> # Dilate pupil (dark adaptation)
+        >>> scene.play(eye.animate_pupil_diameter(0.8, run_time=1.0))
+        >>> # Constrict pupil (bright light)
+        >>> scene.play(eye.animate_pupil_diameter(0.3, run_time=0.5))
+        """
+        if self.pupil is not None:
+            self.pupil_diameter = new_diameter
+            return self.pupil.animate_radius(
+                new_diameter / 2, run_time=run_time, **kwargs
+            )
+        return Wait(0)

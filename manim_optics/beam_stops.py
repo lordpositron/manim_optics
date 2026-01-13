@@ -188,12 +188,16 @@ class CircularAperture(BeamStop):
         """
         super().__init__(**kwargs)
         self.aperture_radius = radius
+        self.radius_tracker = ValueTracker(radius)
         self.total_length = total_length if total_length is not None else 8 * radius
         self.line_color = line_color
         self.line_stroke_width = line_stroke_width
 
         # Create visual representation
         self._create_visual()
+
+        # Add updater to sync radius with tracker
+        self.add_updater(self._update_radius)
 
     def _create_visual(self):
         """Create visual as two vertical line segments with gap in the center for the aperture."""
@@ -230,6 +234,75 @@ class CircularAperture(BeamStop):
         self.top_line = top_line
         self.bottom_line = bottom_line
         self.add(top_line, bottom_line)
+
+    def _update_radius(self, mobject):
+        """Updater to sync aperture_radius with tracker and update visual."""
+        new_radius = self.radius_tracker.get_value()
+
+        # Only update if radius changed
+        if abs(new_radius - self.aperture_radius) > 1e-6:
+            self.aperture_radius = new_radius
+
+            # Store current position
+            current_pos = self.get_center()
+
+            # Update visual lines
+            if hasattr(self, "top_line") and hasattr(self, "bottom_line"):
+                D = self.total_length
+                d = 2 * self.aperture_radius
+
+                if d < D:
+                    # Update line positions
+                    self.top_line.put_start_and_end_on(
+                        current_pos + UP * d / 2, current_pos + UP * D / 2
+                    )
+                    self.bottom_line.put_start_and_end_on(
+                        current_pos + DOWN * d / 2, current_pos + DOWN * D / 2
+                    )
+
+    def animate_radius(self, new_radius: float, run_time: float = 2.0, **kwargs):
+        """Animate a change in aperture radius (pupil dilation/constriction).
+
+        Parameters
+        ----------
+        new_radius : float
+            Target radius
+        run_time : float
+            Duration of the animation
+        **kwargs
+            Additional arguments for the animation
+
+        Returns
+        -------
+        Animation
+            Animation that changes the aperture radius
+
+        Example
+        -------
+        >>> aperture = CircularAperture(radius=0.5)
+        >>> scene.play(aperture.animate_radius(0.8, run_time=1.0))  # Dilate
+        >>> scene.play(aperture.animate_radius(0.3, run_time=1.0))  # Constrict
+        """
+        return self.radius_tracker.animate(run_time=run_time, **kwargs).set_value(
+            new_radius
+        )
+
+    def set_radius(self, radius: float):
+        """Set aperture radius immediately without animation.
+
+        Parameters
+        ----------
+        radius : float
+            New aperture radius
+
+        Returns
+        -------
+        CircularAperture
+            Self (for chaining)
+        """
+        self.aperture_radius = radius
+        self.radius_tracker.set_value(radius)
+        return self
 
     def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
         """

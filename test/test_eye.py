@@ -208,11 +208,11 @@ class TestEyeAccommodation(Scene):
             include_pupil=True,
         )
         eye.shift(RIGHT * 2)
-
+        N = 15
         # Distant object (parallel rays)
         rays_distant = RayBundle(
-            start_points=[np.array([-5, y, 0]) for y in np.linspace(-0.4, 0.4, 5)],
-            direction_angle_deg=[0] * 5,
+            start_points=[np.array([-5, y, 0]) for y in np.linspace(-0.4, 0.4, N)],
+            direction_angle_deg=[0] * N,
             optical_elements=eye.get_optical_elements(),
             color=YELLOW,
             stroke_width=2,
@@ -230,8 +230,8 @@ class TestEyeAccommodation(Scene):
         new_status = Text("Accommodating for near object", font_size=24).next_to(
             title, DOWN
         )
-        eye.set_focal_length(1.5)
         self.play(
+            eye.animate_focal_length(1.5, run_time=2),
             Transform(status, new_status),
             run_time=2,
         )
@@ -240,8 +240,8 @@ class TestEyeAccommodation(Scene):
 
         # Dilate pupil
         new_status2 = Text("Pupil dilation", font_size=24).next_to(title, DOWN)
-        eye.set_pupil_diameter(0.8)
         self.play(
+            eye.animate_pupil_diameter(0.8, run_time=2),
             Transform(status, new_status2),
             run_time=2,
         )

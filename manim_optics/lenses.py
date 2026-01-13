@@ -56,6 +56,7 @@ class ThinLens(OpticalElement):
             **kwargs
         )
         self.focal_length = focal_length
+        self.focal_length_tracker = ValueTracker(focal_length)
         self.lens_height = height
         self.color = color
         self.tip_length = tip_length
@@ -63,6 +64,9 @@ class ThinLens(OpticalElement):
         self.show_focal_points = show_focal_points
         # Create visual representation
         self._create_lens_visual()
+
+        # Add updater to sync focal_length with tracker
+        self.add_updater(self._update_focal_length)
 
     def _create_lens_visual(self):
         """Create the visual representation of the lens."""
@@ -293,6 +297,60 @@ class ThinLens(OpticalElement):
             return None, False
 
         return intersection, True
+
+    def _update_focal_length(self, mobject):
+        """Updater to sync focal_length with tracker value."""
+        self.focal_length = self.focal_length_tracker.get_value()
+
+        # Update focal points positions
+        if hasattr(self, "left_focal") and hasattr(self, "right_focal"):
+            self.left_focal.move_to(self.get_center() + LEFT * abs(self.focal_length))
+            self.right_focal.move_to(self.get_center() + RIGHT * abs(self.focal_length))
+
+    def animate_focal_length(
+        self, new_focal_length: float, run_time: float = 2.0, **kwargs
+    ):
+        """Animate a change in focal length.
+
+        Parameters
+        ----------
+        new_focal_length : float
+            Target focal length
+        run_time : float
+            Duration of the animation
+        **kwargs
+            Additional arguments for the animation
+
+        Returns
+        -------
+        Animation
+            Animation that changes the focal length
+
+        Example
+        -------
+        >>> lens = ConvergingLens(focal_length=2.0)
+        >>> scene.play(lens.animate_focal_length(3.0, run_time=1.5))
+        """
+        return self.focal_length_tracker.animate(run_time=run_time, **kwargs).set_value(
+            new_focal_length
+        )
+
+    def set_focal_length(self, focal_length: float):
+        """Set focal length immediately without animation.
+
+        Parameters
+        ----------
+        focal_length : float
+            New focal length
+
+        Returns
+        -------
+        ThinLens
+            Self (for chaining)
+        """
+        self.focal_length = focal_length
+        self.focal_length_tracker.set_value(focal_length)
+        return self
 
     def get_transfer_matrix(self) -> np.ndarray:
         """
