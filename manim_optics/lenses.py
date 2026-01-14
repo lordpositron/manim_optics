@@ -212,6 +212,19 @@ class ThinLens(OpticalElement):
             right_focal,
         )
 
+    def get_optical_plane_position(self) -> np.ndarray:
+        """Get the position of the optical plane (lens line center).
+
+        This returns the position of the lens line itself, not affected by
+        the focal points which move during focal length animations.
+
+        Returns
+        -------
+        np.ndarray
+            Position of the lens optical plane
+        """
+        return self.lens_line.get_center()
+
     def create(self, run_time: float = 1.0) -> AnimationGroup:
         """
         Create an animation for the appearance of the lens.
@@ -272,8 +285,12 @@ class ThinLens(OpticalElement):
         For a thin lens, we find where the ray crosses the vertical plane
         at the lens center.
         """
+        # Sync focal_length from tracker to ensure we use current value
+        self.focal_length = self.focal_length_tracker.get_value()
+
         # Lens is a vertical plane at x = lens_center_x
-        lens_center = self.get_center()
+        # Use optical plane position (lens line) not VGroup center (which includes focal points)
+        lens_center = self.get_optical_plane_position()
         lens_x = lens_center[0]
 
         # Ray equation: P(t) = ray_start + t * ray_direction
@@ -302,10 +319,11 @@ class ThinLens(OpticalElement):
         """Updater to sync focal_length with tracker value."""
         self.focal_length = self.focal_length_tracker.get_value()
 
-        # Update focal points positions
+        # Update focal points positions relative to optical plane
         if hasattr(self, "left_focal") and hasattr(self, "right_focal"):
-            self.left_focal.move_to(self.get_center() + LEFT * abs(self.focal_length))
-            self.right_focal.move_to(self.get_center() + RIGHT * abs(self.focal_length))
+            optical_center = self.get_optical_plane_position()
+            self.left_focal.move_to(optical_center + LEFT * abs(self.focal_length))
+            self.right_focal.move_to(optical_center + RIGHT * abs(self.focal_length))
 
     def animate_focal_length(
         self, new_focal_length: float, run_time: float = 2.0, **kwargs
@@ -358,8 +376,13 @@ class ThinLens(OpticalElement):
 
         For a thin lens: [[1, 0], [-1/f, 1]]
         where f is the focal length.
+
+        Note: Always reads from focal_length_tracker to ensure we use
+        the current animated value during transitions.
         """
-        return np.array([[1.0, 0.0], [-1.0 / self.focal_length, 1.0]])
+        # Always get the current value from the tracker for accurate ray tracing during animations
+        current_focal = self.focal_length_tracker.get_value()
+        return np.array([[1.0, 0.0], [-1.0 / current_focal, 1.0]])
 
     def propagate_ray(
         self,
@@ -376,7 +399,11 @@ class ThinLens(OpticalElement):
 
         Transfer matrix for thin lens: [[1, 0], [-1/f, 1]]
         """
-        lens_center = self.get_center()
+        # Sync focal_length from tracker to ensure we use current value
+        self.focal_length = self.focal_length_tracker.get_value()
+
+        # Use optical plane position (lens line) not VGroup center (which includes focal points)
+        lens_center = self.get_optical_plane_position()
         lens_y_axis = lens_center[1]
 
         # Input ray state
