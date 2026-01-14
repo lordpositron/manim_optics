@@ -226,13 +226,10 @@ class DynamicRay(VMobject):
 
     def animate_propagation(self, run_time: float = 2.0, rate_func=linear) -> Animation:
         """
-        Animate the ray propagating along its path.
+        Animate the ray propagating along its path with fade-in effect.
 
-        The animation follows the ray as it travels through optical elements,
-        drawing it from start to end in the direction of propagation.
-
-        This animation preserves the updater, so the ray will continue to follow
-        dynamic objects (like moving Dots) during and after the animation.
+        The animation shows the ray appearing gradually while maintaining
+        its correct trajectory throughout.
 
         Parameters
         ----------
@@ -244,13 +241,20 @@ class DynamicRay(VMobject):
         Returns
         -------
         Animation
-            Animation that reveals the ray while keeping updaters active
+            Animation that reveals the ray
         """
-        # Use a custom animation that fades in stroke opacity instead of Create
-        # This preserves the updater functionality
+        # Force path update before animation to ensure correct trajectory
+        self._update_ray_path(None)
+
+        # Store current opacity
+        original_opacity = self.get_stroke_opacity()
+
+        # Set to invisible
         self.set_stroke(opacity=0)
+
+        # Return fade-in animation
         return self.animate(run_time=run_time, rate_func=rate_func).set_stroke(
-            opacity=1
+            opacity=original_opacity if original_opacity > 0 else 1
         )
 
     def get_vertex_index_from_pos(self, pos: NDArray[np.floating]) -> NDArray:
@@ -635,10 +639,10 @@ class RayBundle(VGroup):
         self, run_time: float = 2.0, lag_ratio: float = 0.04, rate_func=linear
     ) -> AnimationGroup:
         """
-        Animate all rays propagating sequentially or together.
+        Animate all rays appearing with a fade-in effect.
 
-        This animation preserves updaters, so rays continue to follow
-        dynamic objects during and after the animation.
+        This animation preserves updaters and ensures rays have correct
+        trajectories throughout the animation.
 
         Parameters
         ----------
@@ -654,6 +658,10 @@ class RayBundle(VGroup):
         AnimationGroup
             Group of animations for all rays
         """
+        # Force all rays to update their paths first
+        for ray in self.rays:
+            ray._update_ray_path(None)
+
         # Set all rays to invisible initially
         for ray in self.rays:
             ray.set_stroke(opacity=0)
@@ -666,6 +674,128 @@ class RayBundle(VGroup):
                 )
                 for ray in self.rays
             ],
+            lag_ratio=lag_ratio,
+        )
+
+    def animate_create(
+        self, run_time: float = 2.0, lag_ratio: float = 0.04, rate_func=linear
+    ) -> AnimationGroup:
+        """Animate rays appearing from right to left (following propagation direction).
+
+        Creates a 'wave' effect where rays appear to propagate through the system.
+        All rays appear simultaneously but with a sequential reveal along their paths.
+
+        Parameters
+        ----------
+        run_time : float
+            Duration of the animation
+        lag_ratio : float
+            Delay between starting each ray's animation
+        rate_func : function
+            Rate function for the animation
+
+        Returns
+        -------
+        AnimationGroup
+            Group of Create animations for all rays
+
+        Example
+        -------
+        >>> rays = RayBundle(...)
+        >>> scene.play(rays.animate_create(run_time=2))
+        """
+        # Force all rays to update their paths first
+        for ray in self.rays:
+            ray._update_ray_path(None)
+
+        # Store original opacities
+        original_opacities = [ray.get_stroke_opacity() for ray in self.rays]
+
+        # Set all rays to invisible
+        for ray in self.rays:
+            ray.set_stroke(opacity=0)
+
+        # Use ray.animate() to preserve updaters
+        return AnimationGroup(
+            *[
+                ray.animate(run_time=run_time, rate_func=rate_func).set_stroke(
+                    opacity=original_opacities[i] if original_opacities[i] > 0 else 1
+                )
+                for i, ray in enumerate(self.rays)
+            ],
+            lag_ratio=lag_ratio,
+        )
+
+    def animate_fade_in(
+        self, run_time: float = 1.0, lag_ratio: float = 0.0
+    ) -> AnimationGroup:
+        """Animate rays fading in with correct trajectories.
+
+        Simple fade-in animation where all rays appear gradually.
+        More subtle than animate_propagation.
+
+        Parameters
+        ----------
+        run_time : float
+            Duration of the fade-in
+        lag_ratio : float
+            Delay between starting each ray's fade (usually 0 for simultaneous)
+
+        Returns
+        -------
+        AnimationGroup
+            Group of FadeIn animations
+
+        Example
+        -------
+        >>> rays = RayBundle(...)
+        >>> scene.play(rays.animate_fade_in(run_time=1))
+        """
+        # Force all rays to update their paths first
+        for ray in self.rays:
+            ray._update_ray_path(None)
+
+        # Store original opacities
+        original_opacities = [ray.get_stroke_opacity() for ray in self.rays]
+
+        # Set all rays to invisible
+        for ray in self.rays:
+            ray.set_stroke(opacity=0)
+
+        # Use ray.animate() to preserve updaters
+        return AnimationGroup(
+            *[
+                ray.animate(run_time=run_time).set_stroke(
+                    opacity=original_opacities[i] if original_opacities[i] > 0 else 1
+                )
+                for i, ray in enumerate(self.rays)
+            ],
+            lag_ratio=lag_ratio,
+        )
+
+    def animate_uncreate(
+        self, run_time: float = 1.0, lag_ratio: float = 0.0
+    ) -> AnimationGroup:
+        """Animate rays disappearing (reverse of animate_create).
+
+        Parameters
+        ----------
+        run_time : float
+            Duration of the animation
+        lag_ratio : float
+            Delay between starting each ray's animation
+
+        Returns
+        -------
+        AnimationGroup
+            Group of Uncreate animations
+
+        Example
+        -------
+        >>> scene.play(rays.animate_uncreate(run_time=1))
+        """
+        return AnimationGroup(
+            *[Uncreate(ray, run_time=run_time) for ray in self.rays],
             lag_ratio=lag_ratio,
         )
 
