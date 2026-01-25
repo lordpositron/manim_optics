@@ -1086,8 +1086,8 @@ class RayExtension(VMobject):
         if color is None:
             color = ray.get_color()
         self.set_stroke(color=color, width=ray.get_stroke_width() * 0.7)
-        self.set_stroke(opacity=0.5)
-        self.set_style(stroke_opacity=0.5)
+        self.set_stroke(opacity=0.7)
+        self.set_style(stroke_opacity=0.8)
         self.set_opacity(0)
 
         # Calculate initial extension
@@ -1292,9 +1292,9 @@ class RayExtension(VMobject):
                 extension_start,
                 extension_end,
                 dash_length=0.1,
-                stroke_width=self.ray.get_stroke_width() * 0.7,
+                stroke_width=self.ray.get_stroke_width(),
                 color=self.ray.get_color(),
-                stroke_opacity=0.5,
+                stroke_opacity=0.7,
             )
             self.become(dashed)
         else:
