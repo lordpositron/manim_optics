@@ -161,75 +161,83 @@ class DynamicRay(VMobject):
         if len(points) >= 2:
             # Build list of segments, potentially splitting them if needed
             all_segments = []
-            
+
             for i in range(len(points) - 1):
                 p1 = points[i]
                 p2 = points[i + 1]
-                
+
                 # Check if any element wants to split this segment
-                segment_parts = [(p1, p2, True, False)]  # Default: one visible solid segment
-                
+                segment_parts = [
+                    (p1, p2, True, False)
+                ]  # Default: one visible solid segment
+
                 for element in self.optical_elements:
-                    if hasattr(element, 'split_segment_at_boundaries'):
+                    if hasattr(element, "split_segment_at_boundaries"):
                         # Element can split segments (like CenteredSystem)
                         segment_parts = element.split_segment_at_boundaries(p1, p2)
                         break
-                
+
                 # Add all parts to our list
                 all_segments.extend(segment_parts)
-            
+
             # Now render only the visible segments with their styles
-            visible_segments = [(p1, p2, dashed) for p1, p2, visible, dashed in all_segments if visible]
-            
+            visible_segments = [
+                (p1, p2, dashed) for p1, p2, visible, dashed in all_segments if visible
+            ]
+
             if len(visible_segments) == 0:
                 # Nothing to show
                 self.clear_points()
             else:
                 # Group segments by style (solid/dashed) and continuity
                 self.clear_points()
-                
+
                 i = 0
                 while i < len(visible_segments):
                     p1, p2, dashed = visible_segments[i]
                     current_group = [p1, p2]
                     current_dashed = dashed
-                    
+
                     # Look ahead for continuous segments with same style
                     j = i + 1
                     while j < len(visible_segments):
-                        prev_end = visible_segments[j-1][1]
+                        prev_end = visible_segments[j - 1][1]
                         curr_start = visible_segments[j][0]
                         curr_dashed = visible_segments[j][2]
-                        
+
                         # If continuous and same style
-                        if np.allclose(prev_end, curr_start, atol=1e-4) and curr_dashed == current_dashed:
+                        if (
+                            np.allclose(prev_end, curr_start, atol=1e-4)
+                            and curr_dashed == current_dashed
+                        ):
                             current_group.append(visible_segments[j][1])
                             j += 1
                         else:
                             break
-                    
+
                     # Create line for this group
                     if current_dashed:
                         # Dashed line with consistent dash spacing
                         # Calculate total length of the path
                         total_length = 0.0
                         for k in range(len(current_group) - 1):
-                            total_length += np.linalg.norm(current_group[k+1] - current_group[k])
-                        
+                            total_length += np.linalg.norm(
+                                current_group[k + 1] - current_group[k]
+                            )
+
                         # Fixed physical dash and gap sizes for visual consistency
                         dash_size = 0.1  # Each dash is 0.1 units
-                        gap_size = 0.1   # Each gap is 0.1 units
+                        gap_size = 0.1  # Each gap is 0.1 units
                         dash_period = dash_size + gap_size  # Total period = 0.2 units
-                        
+
                         # Calculate number of dashes based on total length
                         # Use minimum of 3 to ensure visibility even for short segments
                         num_dashes = max(3, int(total_length / dash_period))
-                        
+
                         # Calculate dashed_ratio to get exact dash size
                         # dashed_ratio = dash_size / dash_period
                         dashed_ratio = dash_size / dash_period  # = 0.5
-                        
-                        
+
                         line = DashedVMobject(
                             VMobject().set_points_as_corners(current_group),
                             num_dashes=num_dashes,
@@ -238,20 +246,20 @@ class DynamicRay(VMobject):
                         line.set_stroke(
                             color=self.get_stroke_color(),
                             width=self.get_stroke_width(),
-                            opacity=self.get_stroke_opacity()
+                            opacity=self.get_stroke_opacity(),
                         )
                     else:
                         # Solid line
-                        
+
                         line = VMobject()
                         line.set_points_as_corners(current_group)
                         line.set_stroke(
                             color=self.get_stroke_color(),
                             width=self.get_stroke_width(),
-                            opacity=self.get_stroke_opacity()
+                            opacity=self.get_stroke_opacity(),
                         )
                     self.add(line)
-                    
+
                     # Move to next group
                     i = j
         else:

@@ -9,7 +9,7 @@ import numpy as np
 
 class DebugTwoRays(Scene):
     """Simple test with just two rays to debug hiding."""
-    
+
     def construct(self):
         # Add a grid for better visualization of coordinates
         grid = NumberPlane(
@@ -29,7 +29,7 @@ class DebugTwoRays(Scene):
         )
         grid.add_coordinates()
         self.add(grid)
-        
+
         # Create a simple centered system with boundaries BEFORE H and H'
         system = CenteredSystem(
             h_position=-1.0,
@@ -43,10 +43,10 @@ class DebugTwoRays(Scene):
             h_color=YELLOW,
             boundary_color=BLUE,
         )
-        
+
         self.add(system)
         self.wait(0.5)
-        
+
         # Ray 1: Parallel to axis (y=0.5)
         print("\n=== Creating Ray 1 (parallel) ===")
         ray1 = DynamicRay(
@@ -57,12 +57,12 @@ class DebugTwoRays(Scene):
             ray_length=8.0,
             stroke_width=4,
         )
-        
+
         # Ray 2: Slightly inclined
         print("\n=== Creating Ray 2 (inclined) ===")
         direction_inclined = np.array([1.0, -0.2, 0.0])
         direction_inclined = direction_inclined / np.linalg.norm(direction_inclined)
-        
+
         ray2 = DynamicRay(
             start_point=np.array([-4.0, 1.0, 0.0]),
             direction=direction_inclined,
@@ -71,6 +71,6 @@ class DebugTwoRays(Scene):
             ray_length=8.0,
             stroke_width=4,
         )
-        
+
         self.play(Create(ray1), Create(ray2))
         self.wait(1)

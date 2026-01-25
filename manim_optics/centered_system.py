@@ -51,7 +51,7 @@ class CenteredSystem(OpticalElement):
         show_focal_points: bool = True,
         focal_point_color=YELLOW,
         label_color=WHITE,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize a centered optical system.
@@ -103,7 +103,7 @@ class CenteredSystem(OpticalElement):
         super().__init__(
             refractive_index_before=refractive_index_before,
             refractive_index_after=refractive_index_after,
-            **kwargs
+            **kwargs,
         )
 
         self.h_position = h_position
@@ -595,17 +595,26 @@ class CenteredSystem(OpticalElement):
 
         # Check if segment crosses H and H' planes
         # A segment "crosses" if it goes through (strictly) or ends exactly at the boundary
-        crosses_h = ((x1 < self.h_position < x2) or (x2 < self.h_position < x1) or 
-                     abs(x2 - self.h_position) < 1e-6 or abs(x1 - self.h_position) < 1e-6)
-        crosses_hprime = ((x1 < self.h_prime_position < x2) or (x2 < self.h_prime_position < x1) or
-                          abs(x2 - self.h_prime_position) < 1e-6 or abs(x1 - self.h_prime_position) < 1e-6)
-        
+        crosses_h = (
+            (x1 < self.h_position < x2)
+            or (x2 < self.h_position < x1)
+            or abs(x2 - self.h_position) < 1e-6
+            or abs(x1 - self.h_position) < 1e-6
+        )
+        crosses_hprime = (
+            (x1 < self.h_prime_position < x2)
+            or (x2 < self.h_prime_position < x1)
+            or abs(x2 - self.h_prime_position) < 1e-6
+            or abs(x1 - self.h_prime_position) < 1e-6
+        )
+
         # Only add H/H' splits if segment actually spans from before H to after H'
         # This handles the teleportation case
-        spans_h_to_hprime = ((x1 <= self.h_position and x2 >= self.h_prime_position) or
-                              (x1 >= self.h_prime_position and x2 <= self.h_position))
+        spans_h_to_hprime = (x1 <= self.h_position and x2 >= self.h_prime_position) or (
+            x1 >= self.h_prime_position and x2 <= self.h_position
+        )
         crosses_h_to_hprime = crosses_h and crosses_hprime and spans_h_to_hprime
-        
+
         # Check intersections with boundaries
         left_intersection, left_found = self._intersect_arc_boundary(
             point1, segment_direction, self.left_boundary
@@ -614,10 +623,16 @@ class CenteredSystem(OpticalElement):
             point1, segment_direction, self.right_boundary
         )
 
-        print(f"\nDEBUG split_segment: ({x1:.2f}, {point1[1]:.2f}) → ({x2:.2f}, {point2[1]:.2f})")
+        print(
+            f"\nDEBUG split_segment: ({x1:.2f}, {point1[1]:.2f}) → ({x2:.2f}, {point2[1]:.2f})"
+        )
         print(f"  Segment direction: {segment_direction[:2]}")
-        print(f"  Left intersection: {left_found}, pos={left_intersection[:2] if left_found else 'None'}")
-        print(f"  Right intersection: {right_found}, pos={right_intersection[:2] if right_found else 'None'}")
+        print(
+            f"  Left intersection: {left_found}, pos={left_intersection[:2] if left_found else 'None'}"
+        )
+        print(
+            f"  Right intersection: {right_found}, pos={right_intersection[:2] if right_found else 'None'}"
+        )
 
         # Filter intersections that are actually within this segment
         def is_within_segment(inter_point, p1, p2):
@@ -647,7 +662,9 @@ class CenteredSystem(OpticalElement):
         if crosses_h_to_hprime:
             point_at_h = np.array([self.h_position, point2[1], 0.0])
             point_at_hprime = np.array([self.h_prime_position, point2[1], 0.0])
-            print(f"  Added H/H' split points at x={self.h_position:.2f} and x={self.h_prime_position:.2f}")
+            print(
+                f"  Added H/H' split points at x={self.h_position:.2f} and x={self.h_prime_position:.2f}"
+            )
             split_points.append(("h", point_at_h))
             split_points.append(("hprime", point_at_hprime))
 
@@ -657,9 +674,13 @@ class CenteredSystem(OpticalElement):
 
         # Sort split points by x-coordinate
         split_points.sort(key=lambda item: item[1][0])
-        
-        print(f"  Split points after sorting: {[(label, x[0]) for label, x in split_points]}")
-        print(f"  Building segments from split points (initial is_inside={self.left_boundary_position <= x1 <= self.right_boundary_position}):")
+
+        print(
+            f"  Split points after sorting: {[(label, x[0]) for label, x in split_points]}"
+        )
+        print(
+            f"  Building segments from split points (initial is_inside={self.left_boundary_position <= x1 <= self.right_boundary_position}):"
+        )
 
         # Build segments
         if not split_points:
@@ -684,27 +705,33 @@ class CenteredSystem(OpticalElement):
         i = 0
         while i < len(split_points):
             label, split_point = split_points[i]
-            
+
             if label == "left":
                 # Before left boundary: solid (outside)
-                print(f"    [left] ({current_x:.2f}→{split_point[0]:.2f}) solid (before boundary)")
+                print(
+                    f"    [left] ({current_x:.2f}→{split_point[0]:.2f}) solid (before boundary)"
+                )
                 result.append((current_point, split_point, True, False))
                 current_point = split_point
                 current_x = split_point[0]
                 is_inside_boundaries = True  # Now inside after crossing left boundary
                 i += 1
-                
+
             elif label == "h":
                 # Before H: use current inside/outside state
                 dashed = is_inside_boundaries
-                print(f"    [h] ({current_x:.2f}→{split_point[0]:.2f}) {'dashed' if dashed else 'solid'} (is_inside={is_inside_boundaries})")
+                print(
+                    f"    [h] ({current_x:.2f}→{split_point[0]:.2f}) {'dashed' if dashed else 'solid'} (is_inside={is_inside_boundaries})"
+                )
                 result.append((current_point, split_point, True, dashed))
-                
+
                 # Check if next point is hprime (teleportation)
                 if i + 1 < len(split_points) and split_points[i + 1][0] == "hprime":
                     h_point = split_point
                     hprime_point = split_points[i + 1][1]
-                    print(f"    [hprime] ({h_point[0]:.2f}→{hprime_point[0]:.2f}) INVISIBLE")
+                    print(
+                        f"    [hprime] ({h_point[0]:.2f}→{hprime_point[0]:.2f}) INVISIBLE"
+                    )
                     result.append((h_point, hprime_point, False, False))
                     current_point = hprime_point
                     current_x = hprime_point[0]
@@ -713,29 +740,35 @@ class CenteredSystem(OpticalElement):
                     current_point = split_point
                     current_x = split_point[0]
                     i += 1
-                    
+
             elif label == "hprime":
                 # hprime without h should not happen, but handle it
                 print(f"    [hprime standalone] ({current_x:.2f}→{split_point[0]:.2f})")
                 current_point = split_point
                 current_x = split_point[0]
                 i += 1
-                
+
             elif label == "right":
                 # Before right boundary: dashed (inside)
-                print(f"    [right] ({current_x:.2f}→{split_point[0]:.2f}) dashed (inside, before right boundary)")
+                print(
+                    f"    [right] ({current_x:.2f}→{split_point[0]:.2f}) dashed (inside, before right boundary)"
+                )
                 result.append((current_point, split_point, True, True))
                 current_point = split_point
                 current_x = split_point[0]
-                is_inside_boundaries = False  # Now outside after crossing right boundary
+                is_inside_boundaries = (
+                    False  # Now outside after crossing right boundary
+                )
                 i += 1
 
         # Add final segment after last split point
         if current_x < x2 - 1e-6:
             # After last event: use current inside/outside state
-            print(f"    [final] ({current_x:.2f}→{x2:.2f}) {'dashed' if is_inside_boundaries else 'solid'} (is_inside={is_inside_boundaries})")
+            print(
+                f"    [final] ({current_x:.2f}→{x2:.2f}) {'dashed' if is_inside_boundaries else 'solid'} (is_inside={is_inside_boundaries})"
+            )
             result.append((current_point, point2, True, is_inside_boundaries))
-        
+
         print(f"  → {len(result)} segments total")
         return result
 
@@ -941,5 +974,5 @@ class CenteredSystem(OpticalElement):
         return AnimationGroup(
             *[FadeOut(mob) for mob in self.submobjects],
             lag_ratio=0.05,
-            run_time=run_time
+            run_time=run_time,
         )
