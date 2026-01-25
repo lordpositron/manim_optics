@@ -29,6 +29,9 @@ from .beam_stops import BeamStop, LineBeamStop, CircularAperture, ArcBeamStop
 # Eye
 from .eye import Eye
 
+# Centered System
+from .centered_system import CenteredSystem
+
 # Rays
 from .rays import (
     DynamicRay,
