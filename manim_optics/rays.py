@@ -139,17 +139,33 @@ class DynamicRay(VMobject):
                 # Ray hits an optical element
                 points.append(nearest_intersection)
 
-                # Calculate new direction after interaction
-                new_direction, continues = nearest_element.propagate_ray(
+                # Calculate new direction after interaction (optionally with teleport)
+                propagation_result = nearest_element.propagate_ray(
                     current_pos, current_dir, nearest_intersection
                 )
+
+                # Unpack propagation result (supports optional teleport point)
+                if (
+                    isinstance(propagation_result, tuple)
+                    and len(propagation_result) == 3
+                ):
+                    new_direction, continues, teleport_point = propagation_result
+                else:
+                    new_direction, continues = propagation_result
+                    teleport_point = None
 
                 if not continues:
                     # Ray is absorbed
                     break
 
-                # Update for next segment
-                current_pos = nearest_intersection
+                # If a teleport point is provided (e.g., CenteredSystem), add it
+                if teleport_point is not None:
+                    points.append(teleport_point)
+                    current_pos = teleport_point
+                else:
+                    current_pos = nearest_intersection
+
+                # Update direction for next segment
                 current_dir = new_direction
             else:
                 # No intersection - extend ray in current direction
@@ -185,11 +201,16 @@ class DynamicRay(VMobject):
                 (p1, p2, dashed) for p1, p2, visible, dashed in all_segments if visible
             ]
 
+            # Collect new submobjects in a list
+            new_submobjects = []
+
             if len(visible_segments) == 0:
-                # Nothing to show
+                # Nothing to show - clear everything
+                self.set_submobjects([])
                 self.clear_points()
             else:
                 # Group segments by style (solid/dashed) and continuity
+                # Clear point data
                 self.clear_points()
 
                 i = 0
@@ -238,16 +259,25 @@ class DynamicRay(VMobject):
                         # dashed_ratio = dash_size / dash_period
                         dashed_ratio = dash_size / dash_period  # = 0.5
 
+                        base_vmobject = VMobject().set_points_as_corners(current_group)
                         line = DashedVMobject(
-                            VMobject().set_points_as_corners(current_group),
+                            base_vmobject,
                             num_dashes=num_dashes,
                             dashed_ratio=dashed_ratio,
                         )
+                        # Ensure stroke properties are preserved
                         line.set_stroke(
                             color=self.get_stroke_color(),
                             width=self.get_stroke_width(),
                             opacity=self.get_stroke_opacity(),
                         )
+                        # Force stroke on all submobjects of DashedVMobject
+                        for submob in line.submobjects:
+                            submob.set_stroke(
+                                color=self.get_stroke_color(),
+                                width=self.get_stroke_width(),
+                                opacity=self.get_stroke_opacity(),
+                            )
                     else:
                         # Solid line
 
@@ -258,10 +288,20 @@ class DynamicRay(VMobject):
                             width=self.get_stroke_width(),
                             opacity=self.get_stroke_opacity(),
                         )
-                    self.add(line)
+                    new_submobjects.append(line)
 
                     # Move to next group
                     i = j
+
+                # Create a temporary VGroup with new segments and become it
+                # This ensures old submobjects are removed from the scene
+                temp_ray = VGroup(*new_submobjects)
+                temp_ray.set_stroke(
+                    color=self.get_stroke_color(),
+                    width=self.get_stroke_width(),
+                    opacity=self.get_stroke_opacity(),
+                )
+                self.become(temp_ray)
         else:
             # Fallback: just draw a straight line
             if isinstance(self.start_point_source, (VMobject, Mobject)):

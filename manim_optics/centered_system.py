@@ -106,6 +106,17 @@ class CenteredSystem(OpticalElement):
             **kwargs,
         )
 
+        # Store initial values
+        self._initial_h_position = h_position
+        self._initial_h_prime_position = h_prime_position
+        self._initial_focal_length = focal_length
+        
+        # Create ValueTrackers for animatable parameters
+        self.h_position_tracker = ValueTracker(h_position)
+        self.h_prime_position_tracker = ValueTracker(h_prime_position)
+        self.focal_length_tracker = ValueTracker(focal_length)
+        
+        # Current values (synchronized with trackers)
         self.h_position = h_position
         self.h_prime_position = h_prime_position
         self.focal_length = focal_length
@@ -126,6 +137,10 @@ class CenteredSystem(OpticalElement):
         self.right_boundary_height = (
             right_boundary_height if right_boundary_height is not None else height
         )
+        
+        # Store initial boundary positions for relative updates
+        self._initial_left_boundary_position = self.left_boundary_position
+        self._initial_right_boundary_position = self.right_boundary_position
 
         self.h_color = h_color
         self.h_stroke_width = h_stroke_width
@@ -143,6 +158,9 @@ class CenteredSystem(OpticalElement):
 
         # Create visual representation
         self._create_visual()
+        
+        # Add updater to synchronize tracked values and update visuals
+        self.add_updater(self._update_from_trackers)
 
     def _generate_boundary_arc(
         self, x_position: float, boundary_height: float, is_left: bool = True
@@ -309,9 +327,9 @@ class CenteredSystem(OpticalElement):
         """
         Calculate intersection with principal plane H.
 
-        For ray tracing purposes, we return H' as the intersection point to implement
-        the "teleportation" behavior. The ray hits H, but we return H' so the next
-        segment starts from there.
+        We return the actual point on H to keep the incoming segment physically
+        correct (no early deviation). The teleportation to H' is handled later in
+        ``propagate_ray`` by providing a teleport target.
 
         Parameters
         ----------
@@ -323,34 +341,25 @@ class CenteredSystem(OpticalElement):
         Returns
         -------
         tuple
-            (intersection_point, has_intersection) where:
-            - intersection_point: position at H' (same height as ray would hit H)
-            - has_intersection: bool indicating if intersection exists
+            (intersection_point, has_intersection) where ``intersection_point`` is
+            the hit point on H.
         """
-        # Intersection with plane H (vertical plane at x = h_position)
         if abs(ray_direction[0]) < 1e-10:
             return None, False  # Ray parallel to H
 
         t = (self.h_position - ray_start[0]) / ray_direction[0]
-
         if t < 0:
             return None, False  # Intersection behind ray start
 
         intersection_h = ray_start + t * ray_direction
 
-        # Check if within system height
         if abs(intersection_h[1]) > self.system_height / 2:
             return None, False  # Outside system boundaries
 
-        # Store the H intersection for calculations
+        # Store the H intersection for later use in propagation
         self._last_h_intersection = intersection_h
 
-        # Return H' position (teleportation) - same height but at H' x-position
-        intersection_h_prime = np.array(
-            [self.h_prime_position, intersection_h[1], 0.0]  # Same height as at H
-        )
-
-        return intersection_h_prime, True
+        return intersection_h, True
 
     def propagate_ray(
         self,
@@ -379,9 +388,10 @@ class CenteredSystem(OpticalElement):
         Returns
         -------
         tuple
-            (new_direction, continues)
+            (new_direction, continues, teleport_point)
             - new_direction: direction after system (from H')
             - continues: True (ray continues)
+            - teleport_point: point at H' where the outgoing ray starts
         """
         # Get the actual H intersection (stored by intersect method)
         if hasattr(self, "_last_h_intersection"):
@@ -401,7 +411,10 @@ class CenteredSystem(OpticalElement):
         new_direction = np.array([1.0, tan_theta_out, 0.0])
         new_direction = new_direction / np.linalg.norm(new_direction)
 
-        return new_direction, True
+        # Teleport point on H'
+        teleport_point = np.array([self.h_prime_position, y_intersection, 0.0])
+
+        return new_direction, True, teleport_point
 
     def should_hide_segment(self, point1: np.ndarray, point2: np.ndarray) -> bool:
         """
@@ -429,12 +442,6 @@ class CenteredSystem(OpticalElement):
         # Check if this is a segment that crosses through the system
         # From before/at H to at/after H'
         crosses_into_system = x1 <= self.h_position and x2 >= self.h_prime_position
-
-        if crosses_into_system:
-            # This segment needs to be split in rays.py
-            # We mark it for splitting but don't hide it entirely here
-            return False
-
         return False
 
     def _intersect_arc_boundary(
@@ -598,22 +605,34 @@ class CenteredSystem(OpticalElement):
         crosses_h = (
             (x1 < self.h_position < x2)
             or (x2 < self.h_position < x1)
-            or abs(x2 - self.h_position) < 1e-6
             or abs(x1 - self.h_position) < 1e-6
+            or abs(x2 - self.h_position) < 1e-6
         )
         crosses_hprime = (
             (x1 < self.h_prime_position < x2)
             or (x2 < self.h_prime_position < x1)
-            or abs(x2 - self.h_prime_position) < 1e-6
             or abs(x1 - self.h_prime_position) < 1e-6
+            or abs(x2 - self.h_prime_position) < 1e-6
         )
 
-        # Only add H/H' splits if segment actually spans from before H to after H'
-        # This handles the teleportation case
-        spans_h_to_hprime = (x1 <= self.h_position and x2 >= self.h_prime_position) or (
-            x1 >= self.h_prime_position and x2 <= self.h_position
-        )
-        crosses_h_to_hprime = crosses_h and crosses_hprime and spans_h_to_hprime
+        # ROBUST detection: A segment needs H→H' teleportation if both H and H' are strictly within the segment
+        # Use a slightly relaxed tolerance to handle floating-point precision issues during animations
+        min_x = min(x1, x2)
+        max_x = max(x1, x2)
+        tolerance = 1e-5
+        
+        # Check if H is within segment (with tolerance)
+        h_in_segment = (min_x - tolerance <= self.h_position <= max_x + tolerance)
+        # Check if H' is within segment (with tolerance)
+        hprime_in_segment = (min_x - tolerance <= self.h_prime_position <= max_x + tolerance)
+        # Both must be present AND H must come before H'
+        h_before_hprime = self.h_position < self.h_prime_position
+        
+        crosses_h_to_hprime = h_in_segment and hprime_in_segment and h_before_hprime
+        
+        # Debug: log segments that should teleport
+        if crosses_h_to_hprime:
+            pass  # Teleportation detected
 
         # Check intersections with boundaries
         left_intersection, left_found = self._intersect_arc_boundary(
@@ -621,17 +640,6 @@ class CenteredSystem(OpticalElement):
         )
         right_intersection, right_found = self._intersect_arc_boundary(
             point1, segment_direction, self.right_boundary
-        )
-
-        print(
-            f"\nDEBUG split_segment: ({x1:.2f}, {point1[1]:.2f}) → ({x2:.2f}, {point2[1]:.2f})"
-        )
-        print(f"  Segment direction: {segment_direction[:2]}")
-        print(
-            f"  Left intersection: {left_found}, pos={left_intersection[:2] if left_found else 'None'}"
-        )
-        print(
-            f"  Right intersection: {right_found}, pos={right_intersection[:2] if right_found else 'None'}"
         )
 
         # Filter intersections that are actually within this segment
@@ -646,41 +654,37 @@ class CenteredSystem(OpticalElement):
             return -1e-6 < t < 1.0 + 1e-6
 
         if left_found and not is_within_segment(left_intersection, point1, point2):
-            print(f"  Left intersection REJECTED (not within segment)")
             left_found = False
         if right_found and not is_within_segment(right_intersection, point1, point2):
-            print(f"  Right intersection REJECTED (not within segment)")
             right_found = False
 
         # Build list of split points in order along segment
         split_points = []
 
         if left_found:
-            print(f"  Added LEFT split point at x={left_intersection[0]:.2f}")
             split_points.append(("left", left_intersection))
 
         if crosses_h_to_hprime:
-            point_at_h = np.array([self.h_position, point2[1], 0.0])
-            point_at_hprime = np.array([self.h_prime_position, point2[1], 0.0])
-            print(
-                f"  Added H/H' split points at x={self.h_position:.2f} and x={self.h_prime_position:.2f}"
-            )
+            # Calculate actual intersection heights with H and H' planes
+            # Linear interpolation along the segment
+            if abs(x2 - x1) > 1e-10:
+                t_h = (self.h_position - x1) / (x2 - x1)
+                y_at_h = point1[1] + t_h * (point2[1] - point1[1])
+                point_at_h = np.array([self.h_position, y_at_h, 0.0])
+                point_at_hprime = np.array([self.h_prime_position, y_at_h, 0.0])
+            else:
+                # Vertical segment - use same y
+                point_at_h = np.array([self.h_position, point1[1], 0.0])
+                point_at_hprime = np.array([self.h_prime_position, point1[1], 0.0])
             split_points.append(("h", point_at_h))
             split_points.append(("hprime", point_at_hprime))
 
         if right_found:
-            print(f"  Added RIGHT split point at x={right_intersection[0]:.2f}")
             split_points.append(("right", right_intersection))
 
-        # Sort split points by x-coordinate
-        split_points.sort(key=lambda item: item[1][0])
-
-        print(
-            f"  Split points after sorting: {[(label, x[0]) for label, x in split_points]}"
-        )
-        print(
-            f"  Building segments from split points (initial is_inside={self.left_boundary_position <= x1 <= self.right_boundary_position}):"
-        )
+        # Sort split points by x-coordinate, but keep H and H' together
+        # (they must stay consecutive for teleportation to work)
+        split_points.sort(key=lambda item: (item[1][0], 0 if item[0] == "h" else 1 if item[0] == "hprime" else 0.5))
 
         # Build segments
         if not split_points:
@@ -708,9 +712,6 @@ class CenteredSystem(OpticalElement):
 
             if label == "left":
                 # Before left boundary: solid (outside)
-                print(
-                    f"    [left] ({current_x:.2f}→{split_point[0]:.2f}) solid (before boundary)"
-                )
                 result.append((current_point, split_point, True, False))
                 current_point = split_point
                 current_x = split_point[0]
@@ -720,39 +721,35 @@ class CenteredSystem(OpticalElement):
             elif label == "h":
                 # Before H: use current inside/outside state
                 dashed = is_inside_boundaries
-                print(
-                    f"    [h] ({current_x:.2f}→{split_point[0]:.2f}) {'dashed' if dashed else 'solid'} (is_inside={is_inside_boundaries})"
-                )
-                result.append((current_point, split_point, True, dashed))
+                # Only add segment if there's actually distance to cover
+                if np.linalg.norm(split_point - current_point) > 1e-6:
+                    result.append((current_point, split_point, True, dashed))
 
                 # Check if next point is hprime (teleportation)
                 if i + 1 < len(split_points) and split_points[i + 1][0] == "hprime":
                     h_point = split_point
                     hprime_point = split_points[i + 1][1]
-                    print(
-                        f"    [hprime] ({h_point[0]:.2f}→{hprime_point[0]:.2f}) INVISIBLE"
-                    )
+                    # Invisible segment for teleportation H → H'
                     result.append((h_point, hprime_point, False, False))
                     current_point = hprime_point
                     current_x = hprime_point[0]
+                    # After teleportation, ray is still inside system (between H' and right boundary)
+                    # Keep is_inside_boundaries unchanged
                     i += 2  # Skip both h and hprime
                 else:
+                    # No teleportation, just crossed H
                     current_point = split_point
                     current_x = split_point[0]
                     i += 1
 
             elif label == "hprime":
                 # hprime without h should not happen, but handle it
-                print(f"    [hprime standalone] ({current_x:.2f}→{split_point[0]:.2f})")
                 current_point = split_point
                 current_x = split_point[0]
                 i += 1
 
             elif label == "right":
                 # Before right boundary: dashed (inside)
-                print(
-                    f"    [right] ({current_x:.2f}→{split_point[0]:.2f}) dashed (inside, before right boundary)"
-                )
                 result.append((current_point, split_point, True, True))
                 current_point = split_point
                 current_x = split_point[0]
@@ -762,15 +759,37 @@ class CenteredSystem(OpticalElement):
                 i += 1
 
         # Add final segment after last split point
-        if current_x < x2 - 1e-6:
+        if np.linalg.norm(point2 - current_point) > 1e-6:
             # After last event: use current inside/outside state
-            print(
-                f"    [final] ({current_x:.2f}→{x2:.2f}) {'dashed' if is_inside_boundaries else 'solid'} (is_inside={is_inside_boundaries})"
-            )
             result.append((current_point, point2, True, is_inside_boundaries))
-
-        print(f"  → {len(result)} segments total")
-        return result
+        
+        # SAFETY CHECK: Ensure NO visible segment exists between H and H'
+        # This is critical - any segment with x between H and H' MUST be invisible
+        verified_result = []
+        for seg_start, seg_end, visible, dashed in result:
+            seg_x1, seg_x2 = seg_start[0], seg_end[0]
+            seg_min_x = min(seg_x1, seg_x2)
+            seg_max_x = max(seg_x1, seg_x2)
+            
+            # Check if this segment overlaps the forbidden zone [H, H']
+            overlaps_forbidden = (
+                (seg_min_x < self.h_prime_position) and 
+                (seg_max_x > self.h_position)
+            )
+            
+            if overlaps_forbidden and visible:
+                # This segment crosses the forbidden zone - check if it should be split
+                # If it's exactly the H→H' segment, it should already be invisible
+                if abs(seg_x1 - self.h_position) < 1e-4 and abs(seg_x2 - self.h_prime_position) < 1e-4:
+                    # This is the teleportation segment - force invisible
+                    verified_result.append((seg_start, seg_end, False, dashed))
+                else:
+                    # This shouldn't happen - log and keep as is
+                    verified_result.append((seg_start, seg_end, visible, dashed))
+            else:
+                verified_result.append((seg_start, seg_end, visible, dashed))
+        
+        return verified_result
 
     def get_transfer_matrix(self) -> np.ndarray:
         """
@@ -976,3 +995,162 @@ class CenteredSystem(OpticalElement):
             lag_ratio=0.05,
             run_time=run_time,
         )
+
+    def _manual_update_visual(self):
+        """Manually update visual without the updater (used during animations)."""
+        # Get current values from trackers
+        new_h = self.h_position_tracker.get_value()
+        new_h_prime = self.h_prime_position_tracker.get_value()
+        new_focal = self.focal_length_tracker.get_value()
+        
+        # Update stored values
+        self.h_position = new_h
+        self.h_prime_position = new_h_prime
+        self.focal_length = new_focal
+        
+        # Update boundary positions
+        h_offset = new_h - self._initial_h_position
+        h_prime_offset = new_h_prime - self._initial_h_prime_position
+        self.left_boundary_position = self._initial_left_boundary_position + h_offset
+        self.right_boundary_position = self._initial_right_boundary_position + h_prime_offset
+        
+        # Create temp system and replace submobjects
+        temp_system = CenteredSystem(
+            h_position=self.h_position,
+            h_prime_position=self.h_prime_position,
+            focal_length=self.focal_length,
+            height=self.system_height,
+            left_boundary_position=self.left_boundary_position,
+            left_boundary_height=self.left_boundary_height,
+            right_boundary_position=self.right_boundary_position,
+            right_boundary_height=self.right_boundary_height,
+            boundary_curvature=self.boundary_curvature,
+            show_labels=self.show_labels,
+            show_focal_points=self.show_focal_points,
+            h_color=self.h_color,
+            h_stroke_width=self.h_stroke_width,
+            h_dash_length=self.h_dash_length,
+            boundary_color=self.boundary_color,
+            boundary_stroke_width=self.boundary_stroke_width,
+            focal_point_color=self.focal_point_color,
+            label_color=self.label_color,
+        )
+        
+        # Clear and rebuild submobjects
+        self.submobjects = temp_system.submobjects
+    
+    def _update_from_trackers(self, mobject):
+        """
+        Updater to synchronize values from ValueTrackers and update visuals.
+        """
+        # Get current values from trackers
+        new_h = self.h_position_tracker.get_value()
+        new_h_prime = self.h_prime_position_tracker.get_value()
+        new_focal = self.focal_length_tracker.get_value()
+        
+        # Check if anything changed
+        changed = (
+            abs(new_h - self.h_position) > 1e-6 or
+            abs(new_h_prime - self.h_prime_position) > 1e-6 or
+            abs(new_focal - self.focal_length) > 1e-6
+        )
+        
+        if not changed:
+            return
+
+        # Update stored values
+        self.h_position = new_h
+        self.h_prime_position = new_h_prime
+        self.focal_length = new_focal
+
+        # Update boundary positions (maintain relative offset from initial)
+        h_offset = new_h - self._initial_h_position
+        h_prime_offset = new_h_prime - self._initial_h_prime_position
+        self.left_boundary_position = self._initial_left_boundary_position + h_offset
+        self.right_boundary_position = self._initial_right_boundary_position + h_prime_offset
+
+        # 1) Move principal planes
+        self.h_plane.move_to(np.array([self.h_position, 0.0, 0.0]))
+        self.h_prime_plane.move_to(np.array([self.h_prime_position, 0.0, 0.0]))
+
+        # 2) Update labels
+        if self.h_label is not None:
+            self.h_label.next_to(self.h_plane, DOWN, buff=0.2)
+        if self.h_prime_label is not None:
+            self.h_prime_label.next_to(self.h_prime_plane, DOWN, buff=0.2)
+
+        # 3) Update boundaries geometry (become on submobjects only)
+        top_l, bottom_l, radius_l = self._generate_boundary_arc(
+            self.left_boundary_position, self.left_boundary_height, is_left=True
+        )
+        new_left = ArcBetweenPoints(
+            top_l,
+            bottom_l,
+            radius=radius_l,
+            stroke_color=self.boundary_color,
+            stroke_width=self.boundary_stroke_width,
+            fill_opacity=0,
+        )
+        new_left.signed_radius = radius_l
+        self.left_boundary.become(new_left)
+
+        top_r, bottom_r, radius_r = self._generate_boundary_arc(
+            self.right_boundary_position, self.right_boundary_height, is_left=False
+        )
+        new_right = ArcBetweenPoints(
+            top_r,
+            bottom_r,
+            radius=radius_r,
+            stroke_color=self.boundary_color,
+            stroke_width=self.boundary_stroke_width,
+            fill_opacity=0,
+        )
+        new_right.signed_radius = radius_r
+        self.right_boundary.become(new_right)
+
+        # 4) Update focal points
+        if self.show_focal_points and self.f_point is not None:
+            f_position = self.h_position - self.focal_length
+            f_prime_position = self.h_prime_position + self.focal_length
+            self.f_point.move_to(np.array([f_position, 0.0, 0.0]))
+            self.f_prime_point.move_to(np.array([f_prime_position, 0.0, 0.0]))
+
+
+
+    def animate_h_position(self, new_h_position: float, run_time: float = 1.0):
+        """Animate H by driving its ValueTracker (updater remains active)."""
+        return self.h_position_tracker.animate(run_time=run_time).set_value(new_h_position)
+    
+    def animate_h_prime_position(self, new_h_prime_position: float, run_time: float = 1.0):
+        """Animate H' by driving its ValueTracker (updater remains active)."""
+        return self.h_prime_position_tracker.animate(run_time=run_time).set_value(new_h_prime_position)
+    
+    def animate_focal_length(self, new_focal_length: float, run_time: float = 1.0):
+        """Animate focal length via its ValueTracker (updater remains active)."""
+        return self.focal_length_tracker.animate(run_time=run_time).set_value(new_focal_length)
+    
+    def animate_system_position(self, new_h: float, new_h_prime: float, run_time: float = 1.0):
+        """Animate H and H' together via their trackers (updater remains active)."""
+        return AnimationGroup(
+            self.h_position_tracker.animate(run_time=run_time).set_value(new_h),
+            self.h_prime_position_tracker.animate(run_time=run_time).set_value(new_h_prime),
+            lag_ratio=0.0,
+        )
+    
+    def set_h_position(self, h_position: float):
+        """Set H position immediately without animation."""
+        self.h_position = h_position
+        self.h_position_tracker.set_value(h_position)
+        return self
+    
+    def set_h_prime_position(self, h_prime_position: float):
+        """Set H' position immediately without animation."""
+        self.h_prime_position = h_prime_position
+        self.h_prime_position_tracker.set_value(h_prime_position)
+        return self
+    
+    def set_focal_length(self, focal_length: float):
+        """Set focal length immediately without animation."""
+        self.focal_length = focal_length
+        self.focal_length_tracker.set_value(focal_length)
+        return self
