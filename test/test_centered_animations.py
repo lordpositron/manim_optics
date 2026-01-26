@@ -30,10 +30,12 @@ class TestSystemMoving(Scene):
 
         # Create centered system
         system = CenteredSystem(
-            h_position=-1.0,
-            h_prime_position=1.0,
+            h_position=1.0,
+            h_prime_position=-1.0,
             focal_length=3.0,
             height=3.0,
+            left_boundary_position=-1.5,
+            right_boundary_position=1.5,
             show_labels=True,
             show_focal_points=True,
         )

@@ -109,6 +109,10 @@ class DynamicRay(VMobject):
         # Normalize direction
         current_direction = current_direction / np.linalg.norm(current_direction)
 
+        # Memory: track which CenteredSystems have already been traversed
+        # This prevents re-interaction after teleportation (H' before H case)
+        traversed_systems = set()
+
         points = []
         current_pos = current_start.copy()
         current_dir = current_direction.copy()
@@ -122,6 +126,11 @@ class DynamicRay(VMobject):
             nearest_element = None
 
             for element in self.optical_elements:
+                # Skip elements that have already been traversed (for CenteredSystem)
+                # Use id() to identify unique instances
+                if id(element) in traversed_systems:
+                    continue
+                
                 intersection, has_intersection = element.intersect(
                     current_pos, current_dir
                 )
@@ -162,6 +171,8 @@ class DynamicRay(VMobject):
                 if teleport_point is not None:
                     points.append(teleport_point)
                     current_pos = teleport_point
+                    # Mark this element as traversed (only for systems with teleportation)
+                    traversed_systems.add(id(nearest_element))
                 else:
                     current_pos = nearest_intersection
 

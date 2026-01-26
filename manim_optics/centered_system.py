@@ -325,11 +325,11 @@ class CenteredSystem(OpticalElement):
 
     def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
         """
-        Calculate intersection with principal plane H.
+        Calculate intersection with principal plane H only.
 
-        We return the actual point on H to keep the incoming segment physically
-        correct (no early deviation). The teleportation to H' is handled later in
-        ``propagate_ray`` by providing a teleport target.
+        The CenteredSystem interacts ONLY with H (the object-side principal plane).
+        H' is purely a teleportation target. The traversed_systems memory in rays.py
+        ensures the system is only traversed once.
 
         Parameters
         ----------
@@ -347,17 +347,21 @@ class CenteredSystem(OpticalElement):
         if abs(ray_direction[0]) < 1e-10:
             return None, False  # Ray parallel to H
 
-        t = (self.h_position - ray_start[0]) / ray_direction[0]
-        if t < 0:
-            return None, False  # Intersection behind ray start
+        # Calculate intersection with H only
+        t_h = (self.h_position_tracker.get_value() - ray_start[0]) / ray_direction[0]
+        
+        if t_h <= 0:
+            return None, False  # H is behind the ray
 
-        intersection_h = ray_start + t * ray_direction
+        # Calculate intersection point at H
+        intersection_h = ray_start + t_h * ray_direction
 
+        # Check if within system height
         if abs(intersection_h[1]) > self.system_height / 2:
             return None, False  # Outside system boundaries
 
-        # Store the H intersection for later use in propagation
-        self._last_h_intersection = intersection_h
+        # Store the intersection height for propagation
+        self._h_intersection_height = intersection_h[1]
 
         return intersection_h, True
 
@@ -368,13 +372,11 @@ class CenteredSystem(OpticalElement):
         intersection_point: np.ndarray,
     ) -> tuple:
         """
-        Propagate ray through principal planes.
+        Propagate ray through principal planes H → H'.
 
-        The intersection_point here is actually H' (from our intersect method).
-        We use the stored H intersection to calculate the proper deflection.
-
-        This method also marks that the segment between H and H' should be hidden
-        by storing segment info in a special attribute.
+        The ray has hit H (from intersect). We calculate the deflection using
+        paraxial optics and teleport to H' at the same height. The ray then
+        exits the system from H'.
 
         Parameters
         ----------
@@ -383,7 +385,7 @@ class CenteredSystem(OpticalElement):
         ray_direction : np.ndarray
             Direction vector of the ray
         intersection_point : np.ndarray
-            Point at H' (returned by intersect)
+            Point at H (from intersect)
 
         Returns
         -------
@@ -391,28 +393,24 @@ class CenteredSystem(OpticalElement):
             (new_direction, continues, teleport_point)
             - new_direction: direction after system (from H')
             - continues: True (ray continues)
-            - teleport_point: point at H' where the outgoing ray starts
+            - teleport_point: point at H' where the outgoing ray starts (same height as H)
         """
-        # Get the actual H intersection (stored by intersect method)
-        if hasattr(self, "_last_h_intersection"):
-            y_intersection = self._last_h_intersection[1]
-        else:
-            # Fallback: use intersection_point height
-            y_intersection = intersection_point[1]
+        # Get the intersection height at H
+        y_intersection = getattr(self, "_h_intersection_height", intersection_point[1])
 
-        # Calculate new direction using thin lens approximation
-        # Paraxial approximation
+        # Calculate new direction using paraxial approximation
+        # The system acts like a thin lens at the principal planes
         tan_theta_in = (
             ray_direction[1] / ray_direction[0] if abs(ray_direction[0]) > 1e-10 else 0
         )
-        tan_theta_out = tan_theta_in - y_intersection / self.focal_length
+        tan_theta_out = tan_theta_in - y_intersection / self.focal_length_tracker.get_value()
 
-        # New direction
+        # New direction (normalized)
         new_direction = np.array([1.0, tan_theta_out, 0.0])
         new_direction = new_direction / np.linalg.norm(new_direction)
 
-        # Teleport point on H'
-        teleport_point = np.array([self.h_prime_position, y_intersection, 0.0])
+        # Teleport to H' at the SAME height as the intersection with H
+        teleport_point = np.array([self.h_prime_position_tracker.get_value(), y_intersection, 0.0])
 
         return new_direction, True, teleport_point
 
@@ -615,20 +613,31 @@ class CenteredSystem(OpticalElement):
             or abs(x2 - self.h_prime_position) < 1e-6
         )
 
-        # ROBUST detection: A segment needs H→H' teleportation if both H and H' are strictly within the segment
+        # CRITICAL: Teleportation ONLY occurs from H to H' in the direction of ray travel
+        # If the ray encounters H' before H, it should remain VISIBLE until it reaches H
         # Use a slightly relaxed tolerance to handle floating-point precision issues during animations
-        min_x = min(x1, x2)
-        max_x = max(x1, x2)
         tolerance = 1e-5
         
-        # Check if H is within segment (with tolerance)
-        h_in_segment = (min_x - tolerance <= self.h_position <= max_x + tolerance)
-        # Check if H' is within segment (with tolerance)
-        hprime_in_segment = (min_x - tolerance <= self.h_prime_position <= max_x + tolerance)
-        # Both must be present AND H must come before H'
-        h_before_hprime = self.h_position < self.h_prime_position
+        # Determine ray direction (from point1 to point2)
+        ray_going_right = (x2 > x1)
         
-        crosses_h_to_hprime = h_in_segment and hprime_in_segment and h_before_hprime
+        # Check if H and H' are both in this segment
+        min_x = min(x1, x2)
+        max_x = max(x1, x2)
+        h_in_segment = (min_x - tolerance <= self.h_position <= max_x + tolerance)
+        hprime_in_segment = (min_x - tolerance <= self.h_prime_position <= max_x + tolerance)
+        
+        # Teleportation occurs ONLY if:
+        # 1. Both H and H' are in the segment
+        # 2. The ray encounters H BEFORE H' (in the direction of travel)
+        if ray_going_right:
+            # Ray goes left-to-right: H must be before H' for teleportation
+            crosses_h_to_hprime = h_in_segment and hprime_in_segment and (self.h_position < self.h_prime_position)
+        else:
+            # Ray goes right-to-left: H must be after H' for teleportation
+            crosses_h_to_hprime = h_in_segment and hprime_in_segment and (self.h_position > self.h_prime_position)
+        
+        # Teleportation detection complete
         
         # Debug: log segments that should teleport
         if crosses_h_to_hprime:
@@ -682,9 +691,14 @@ class CenteredSystem(OpticalElement):
         if right_found:
             split_points.append(("right", right_intersection))
 
-        # Sort split points by x-coordinate, but keep H and H' together
-        # (they must stay consecutive for teleportation to work)
-        split_points.sort(key=lambda item: (item[1][0], 0 if item[0] == "h" else 1 if item[0] == "hprime" else 0.5))
+        # Sort split points by x-coordinate
+        split_points.sort(key=lambda item: item[1][0])
+        
+        # Determine ray direction for correct processing order
+        ray_going_right = (x2 > x1)
+        if not ray_going_right:
+            # Ray going left: reverse the split points to process in ray direction
+            split_points.reverse()
 
         # Build segments
         if not split_points:
@@ -725,25 +739,36 @@ class CenteredSystem(OpticalElement):
                 if np.linalg.norm(split_point - current_point) > 1e-6:
                     result.append((current_point, split_point, True, dashed))
 
-                # Check if next point is hprime (teleportation)
-                if i + 1 < len(split_points) and split_points[i + 1][0] == "hprime":
-                    h_point = split_point
-                    hprime_point = split_points[i + 1][1]
-                    # Invisible segment for teleportation H → H'
-                    result.append((h_point, hprime_point, False, False))
-                    current_point = hprime_point
-                    current_x = hprime_point[0]
-                    # After teleportation, ray is still inside system (between H' and right boundary)
-                    # Keep is_inside_boundaries unchanged
-                    i += 2  # Skip both h and hprime
+                # Check for teleportation: H→H' only (not H'→H)
+                if i + 1 < len(split_points):
+                    next_label = split_points[i + 1][0]
+                    if next_label == "hprime":
+                        # H → H' teleportation: invisible segment
+                        entry_point = split_point
+                        exit_point = split_points[i + 1][1]
+                        result.append((entry_point, exit_point, False, False))
+                        current_point = exit_point
+                        current_x = exit_point[0]
+                        i += 2  # Skip both h and hprime
+                    else:
+                        # No teleportation, just crossed H alone
+                        current_point = split_point
+                        current_x = split_point[0]
+                        i += 1
                 else:
-                    # No teleportation, just crossed H
+                    # Last point, no teleportation possible
                     current_point = split_point
                     current_x = split_point[0]
                     i += 1
 
             elif label == "hprime":
-                # hprime without h should not happen, but handle it
+                # Arrived at H' WITHOUT having encountered H yet
+                # This means ray crosses H' on its way to H → stay VISIBLE (no teleportation)
+                dashed = is_inside_boundaries
+                if np.linalg.norm(split_point - current_point) > 1e-6:
+                    result.append((current_point, split_point, True, dashed))
+                
+                # Continue from H' without teleportation
                 current_point = split_point
                 current_x = split_point[0]
                 i += 1
@@ -763,24 +788,28 @@ class CenteredSystem(OpticalElement):
             # After last event: use current inside/outside state
             result.append((current_point, point2, True, is_inside_boundaries))
         
-        # SAFETY CHECK: Ensure NO visible segment exists between H and H'
-        # This is critical - any segment with x between H and H' MUST be invisible
+        # SAFETY CHECK: Ensure NO visible segment exists between the two principal planes
+        # This is critical - any segment between H and H' MUST be invisible (regardless of order)
         verified_result = []
+        min_principal = min(self.h_position, self.h_prime_position)
+        max_principal = max(self.h_position, self.h_prime_position)
+        
         for seg_start, seg_end, visible, dashed in result:
             seg_x1, seg_x2 = seg_start[0], seg_end[0]
             seg_min_x = min(seg_x1, seg_x2)
             seg_max_x = max(seg_x1, seg_x2)
             
-            # Check if this segment overlaps the forbidden zone [H, H']
-            overlaps_forbidden = (
-                (seg_min_x < self.h_prime_position) and 
-                (seg_max_x > self.h_position)
-            )
+            # Check if this segment overlaps the forbidden zone [min_principal, max_principal]
+            overlaps_forbidden = (seg_min_x < max_principal) and (seg_max_x > min_principal)
             
             if overlaps_forbidden and visible:
-                # This segment crosses the forbidden zone - check if it should be split
-                # If it's exactly the H→H' segment, it should already be invisible
-                if abs(seg_x1 - self.h_position) < 1e-4 and abs(seg_x2 - self.h_prime_position) < 1e-4:
+                # This segment crosses the forbidden zone
+                # If it spans exactly from one principal plane to the other, force invisible
+                is_teleport_segment = (
+                    (abs(seg_x1 - min_principal) < 1e-4 and abs(seg_x2 - max_principal) < 1e-4) or
+                    (abs(seg_x1 - max_principal) < 1e-4 and abs(seg_x2 - min_principal) < 1e-4)
+                )
+                if is_teleport_segment:
                     # This is the teleportation segment - force invisible
                     verified_result.append((seg_start, seg_end, False, dashed))
                 else:
