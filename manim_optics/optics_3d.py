@@ -374,14 +374,25 @@ class ThinLens3D(OpticalElement3D):
         h_u = np.dot(delta, self.u)
         h_v = np.dot(delta, self.v)
 
-        # Formule de la lentille mince : déviation = -h/f
-        # La nouvelle direction est modifiée dans le plan perpendiculaire à n
-        deviation_u = -h_u / self.focal_length
-        deviation_v = -h_v / self.focal_length
+        # Formule de la lentille mince en 3D
+        # Pour une lentille mince, la déviation angulaire est : Δθ = -h/f
+        # où θ est l'angle par rapport à la normale du plan de la lentille
+        #
+        # En 3D, l'angle paraxial est : θ ≈ d_u / d_n
+        # Après la lentille : θ_out = θ_in - h/f
+        # Donc : d_u_out / d_n = d_u_in / d_n - h/f
+        # Ce qui donne : d_u_out = d_u_in - h * d_n / f
+        #
+        # Note : d_n doit être multiplié (pas divisé) car la déviation
+        # est proportionnelle à la composante normale du rayon
 
-        # Nouvelle direction = ancienne + déviation
-        new_d_u = d_u + deviation_u
-        new_d_v = d_v + deviation_v
+        if abs(d_n) < 1e-6:
+            # Rayon quasi-parallèle au plan de la lentille
+            return ray_direction, True
+
+        # Nouvelle direction dans le repère local
+        new_d_u = d_u - h_u * d_n / self.focal_length
+        new_d_v = d_v - h_v * d_n / self.focal_length
         # d_n reste inchangé
 
         new_direction = new_d_u * self.u + new_d_v * self.v + d_n * self.n
