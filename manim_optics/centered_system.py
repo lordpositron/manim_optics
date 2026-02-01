@@ -110,12 +110,12 @@ class CenteredSystem(OpticalElement):
         self._initial_h_position = h_position
         self._initial_h_prime_position = h_prime_position
         self._initial_focal_length = focal_length
-        
+
         # Create ValueTrackers for animatable parameters
         self.h_position_tracker = ValueTracker(h_position)
         self.h_prime_position_tracker = ValueTracker(h_prime_position)
         self.focal_length_tracker = ValueTracker(focal_length)
-        
+
         # Current values (synchronized with trackers)
         self.h_position = h_position
         self.h_prime_position = h_prime_position
@@ -137,7 +137,7 @@ class CenteredSystem(OpticalElement):
         self.right_boundary_height = (
             right_boundary_height if right_boundary_height is not None else height
         )
-        
+
         # Store initial boundary positions for relative updates
         self._initial_left_boundary_position = self.left_boundary_position
         self._initial_right_boundary_position = self.right_boundary_position
@@ -158,7 +158,7 @@ class CenteredSystem(OpticalElement):
 
         # Create visual representation
         self._create_visual()
-        
+
         # Add updater to synchronize tracked values and update visuals
         self.add_updater(self._update_from_trackers)
 
@@ -349,7 +349,7 @@ class CenteredSystem(OpticalElement):
 
         # Calculate intersection with H only
         t_h = (self.h_position_tracker.get_value() - ray_start[0]) / ray_direction[0]
-        
+
         if t_h <= 0:
             return None, False  # H is behind the ray
 
@@ -403,14 +403,18 @@ class CenteredSystem(OpticalElement):
         tan_theta_in = (
             ray_direction[1] / ray_direction[0] if abs(ray_direction[0]) > 1e-10 else 0
         )
-        tan_theta_out = tan_theta_in - y_intersection / self.focal_length_tracker.get_value()
+        tan_theta_out = (
+            tan_theta_in - y_intersection / self.focal_length_tracker.get_value()
+        )
 
         # New direction (normalized)
         new_direction = np.array([1.0, tan_theta_out, 0.0])
         new_direction = new_direction / np.linalg.norm(new_direction)
 
         # Teleport to H' at the SAME height as the intersection with H
-        teleport_point = np.array([self.h_prime_position_tracker.get_value(), y_intersection, 0.0])
+        teleport_point = np.array(
+            [self.h_prime_position_tracker.get_value(), y_intersection, 0.0]
+        )
 
         return new_direction, True, teleport_point
 
@@ -617,28 +621,38 @@ class CenteredSystem(OpticalElement):
         # If the ray encounters H' before H, it should remain VISIBLE until it reaches H
         # Use a slightly relaxed tolerance to handle floating-point precision issues during animations
         tolerance = 1e-5
-        
+
         # Determine ray direction (from point1 to point2)
-        ray_going_right = (x2 > x1)
-        
+        ray_going_right = x2 > x1
+
         # Check if H and H' are both in this segment
         min_x = min(x1, x2)
         max_x = max(x1, x2)
-        h_in_segment = (min_x - tolerance <= self.h_position <= max_x + tolerance)
-        hprime_in_segment = (min_x - tolerance <= self.h_prime_position <= max_x + tolerance)
-        
+        h_in_segment = min_x - tolerance <= self.h_position <= max_x + tolerance
+        hprime_in_segment = (
+            min_x - tolerance <= self.h_prime_position <= max_x + tolerance
+        )
+
         # Teleportation occurs ONLY if:
         # 1. Both H and H' are in the segment
         # 2. The ray encounters H BEFORE H' (in the direction of travel)
         if ray_going_right:
             # Ray goes left-to-right: H must be before H' for teleportation
-            crosses_h_to_hprime = h_in_segment and hprime_in_segment and (self.h_position < self.h_prime_position)
+            crosses_h_to_hprime = (
+                h_in_segment
+                and hprime_in_segment
+                and (self.h_position < self.h_prime_position)
+            )
         else:
             # Ray goes right-to-left: H must be after H' for teleportation
-            crosses_h_to_hprime = h_in_segment and hprime_in_segment and (self.h_position > self.h_prime_position)
-        
+            crosses_h_to_hprime = (
+                h_in_segment
+                and hprime_in_segment
+                and (self.h_position > self.h_prime_position)
+            )
+
         # Teleportation detection complete
-        
+
         # Debug: log segments that should teleport
         if crosses_h_to_hprime:
             pass  # Teleportation detected
@@ -693,9 +707,9 @@ class CenteredSystem(OpticalElement):
 
         # Sort split points by x-coordinate
         split_points.sort(key=lambda item: item[1][0])
-        
+
         # Determine ray direction for correct processing order
-        ray_going_right = (x2 > x1)
+        ray_going_right = x2 > x1
         if not ray_going_right:
             # Ray going left: reverse the split points to process in ray direction
             split_points.reverse()
@@ -767,7 +781,7 @@ class CenteredSystem(OpticalElement):
                 dashed = is_inside_boundaries
                 if np.linalg.norm(split_point - current_point) > 1e-6:
                     result.append((current_point, split_point, True, dashed))
-                
+
                 # Continue from H' without teleportation
                 current_point = split_point
                 current_x = split_point[0]
@@ -787,27 +801,32 @@ class CenteredSystem(OpticalElement):
         if np.linalg.norm(point2 - current_point) > 1e-6:
             # After last event: use current inside/outside state
             result.append((current_point, point2, True, is_inside_boundaries))
-        
+
         # SAFETY CHECK: Ensure NO visible segment exists between the two principal planes
         # This is critical - any segment between H and H' MUST be invisible (regardless of order)
         verified_result = []
         min_principal = min(self.h_position, self.h_prime_position)
         max_principal = max(self.h_position, self.h_prime_position)
-        
+
         for seg_start, seg_end, visible, dashed in result:
             seg_x1, seg_x2 = seg_start[0], seg_end[0]
             seg_min_x = min(seg_x1, seg_x2)
             seg_max_x = max(seg_x1, seg_x2)
-            
+
             # Check if this segment overlaps the forbidden zone [min_principal, max_principal]
-            overlaps_forbidden = (seg_min_x < max_principal) and (seg_max_x > min_principal)
-            
+            overlaps_forbidden = (seg_min_x < max_principal) and (
+                seg_max_x > min_principal
+            )
+
             if overlaps_forbidden and visible:
                 # This segment crosses the forbidden zone
                 # If it spans exactly from one principal plane to the other, force invisible
                 is_teleport_segment = (
-                    (abs(seg_x1 - min_principal) < 1e-4 and abs(seg_x2 - max_principal) < 1e-4) or
-                    (abs(seg_x1 - max_principal) < 1e-4 and abs(seg_x2 - min_principal) < 1e-4)
+                    abs(seg_x1 - min_principal) < 1e-4
+                    and abs(seg_x2 - max_principal) < 1e-4
+                ) or (
+                    abs(seg_x1 - max_principal) < 1e-4
+                    and abs(seg_x2 - min_principal) < 1e-4
                 )
                 if is_teleport_segment:
                     # This is the teleportation segment - force invisible
@@ -817,7 +836,7 @@ class CenteredSystem(OpticalElement):
                     verified_result.append((seg_start, seg_end, visible, dashed))
             else:
                 verified_result.append((seg_start, seg_end, visible, dashed))
-        
+
         return verified_result
 
     def get_transfer_matrix(self) -> np.ndarray:
@@ -1031,18 +1050,20 @@ class CenteredSystem(OpticalElement):
         new_h = self.h_position_tracker.get_value()
         new_h_prime = self.h_prime_position_tracker.get_value()
         new_focal = self.focal_length_tracker.get_value()
-        
+
         # Update stored values
         self.h_position = new_h
         self.h_prime_position = new_h_prime
         self.focal_length = new_focal
-        
+
         # Update boundary positions
         h_offset = new_h - self._initial_h_position
         h_prime_offset = new_h_prime - self._initial_h_prime_position
         self.left_boundary_position = self._initial_left_boundary_position + h_offset
-        self.right_boundary_position = self._initial_right_boundary_position + h_prime_offset
-        
+        self.right_boundary_position = (
+            self._initial_right_boundary_position + h_prime_offset
+        )
+
         # Create temp system and replace submobjects
         temp_system = CenteredSystem(
             h_position=self.h_position,
@@ -1064,10 +1085,10 @@ class CenteredSystem(OpticalElement):
             focal_point_color=self.focal_point_color,
             label_color=self.label_color,
         )
-        
+
         # Clear and rebuild submobjects
         self.submobjects = temp_system.submobjects
-    
+
     def _update_from_trackers(self, mobject):
         """
         Updater to synchronize values from ValueTrackers and update visuals.
@@ -1076,14 +1097,14 @@ class CenteredSystem(OpticalElement):
         new_h = self.h_position_tracker.get_value()
         new_h_prime = self.h_prime_position_tracker.get_value()
         new_focal = self.focal_length_tracker.get_value()
-        
+
         # Check if anything changed
         changed = (
-            abs(new_h - self.h_position) > 1e-6 or
-            abs(new_h_prime - self.h_prime_position) > 1e-6 or
-            abs(new_focal - self.focal_length) > 1e-6
+            abs(new_h - self.h_position) > 1e-6
+            or abs(new_h_prime - self.h_prime_position) > 1e-6
+            or abs(new_focal - self.focal_length) > 1e-6
         )
-        
+
         if not changed:
             return
 
@@ -1096,7 +1117,9 @@ class CenteredSystem(OpticalElement):
         h_offset = new_h - self._initial_h_position
         h_prime_offset = new_h_prime - self._initial_h_prime_position
         self.left_boundary_position = self._initial_left_boundary_position + h_offset
-        self.right_boundary_position = self._initial_right_boundary_position + h_prime_offset
+        self.right_boundary_position = (
+            self._initial_right_boundary_position + h_prime_offset
+        )
 
         # 1) Move principal planes
         self.h_plane.move_to(np.array([self.h_position, 0.0, 0.0]))
@@ -1144,40 +1167,50 @@ class CenteredSystem(OpticalElement):
             self.f_point.move_to(np.array([f_position, 0.0, 0.0]))
             self.f_prime_point.move_to(np.array([f_prime_position, 0.0, 0.0]))
 
-
-
     def animate_h_position(self, new_h_position: float, run_time: float = 1.0):
         """Animate H by driving its ValueTracker (updater remains active)."""
-        return self.h_position_tracker.animate(run_time=run_time).set_value(new_h_position)
-    
-    def animate_h_prime_position(self, new_h_prime_position: float, run_time: float = 1.0):
+        return self.h_position_tracker.animate(run_time=run_time).set_value(
+            new_h_position
+        )
+
+    def animate_h_prime_position(
+        self, new_h_prime_position: float, run_time: float = 1.0
+    ):
         """Animate H' by driving its ValueTracker (updater remains active)."""
-        return self.h_prime_position_tracker.animate(run_time=run_time).set_value(new_h_prime_position)
-    
+        return self.h_prime_position_tracker.animate(run_time=run_time).set_value(
+            new_h_prime_position
+        )
+
     def animate_focal_length(self, new_focal_length: float, run_time: float = 1.0):
         """Animate focal length via its ValueTracker (updater remains active)."""
-        return self.focal_length_tracker.animate(run_time=run_time).set_value(new_focal_length)
-    
-    def animate_system_position(self, new_h: float, new_h_prime: float, run_time: float = 1.0):
+        return self.focal_length_tracker.animate(run_time=run_time).set_value(
+            new_focal_length
+        )
+
+    def animate_system_position(
+        self, new_h: float, new_h_prime: float, run_time: float = 1.0
+    ):
         """Animate H and H' together via their trackers (updater remains active)."""
         return AnimationGroup(
             self.h_position_tracker.animate(run_time=run_time).set_value(new_h),
-            self.h_prime_position_tracker.animate(run_time=run_time).set_value(new_h_prime),
+            self.h_prime_position_tracker.animate(run_time=run_time).set_value(
+                new_h_prime
+            ),
             lag_ratio=0.0,
         )
-    
+
     def set_h_position(self, h_position: float):
         """Set H position immediately without animation."""
         self.h_position = h_position
         self.h_position_tracker.set_value(h_position)
         return self
-    
+
     def set_h_prime_position(self, h_prime_position: float):
         """Set H' position immediately without animation."""
         self.h_prime_position = h_prime_position
         self.h_prime_position_tracker.set_value(h_prime_position)
         return self
-    
+
     def set_focal_length(self, focal_length: float):
         """Set focal length immediately without animation."""
         self.focal_length = focal_length

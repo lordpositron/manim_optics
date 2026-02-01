@@ -130,7 +130,7 @@ class DynamicRay(VMobject):
                 # Use id() to identify unique instances
                 if id(element) in traversed_systems:
                     continue
-                
+
                 intersection, has_intersection = element.intersect(
                     current_pos, current_dir
                 )
