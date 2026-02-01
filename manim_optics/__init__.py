@@ -32,6 +32,9 @@ from .eye import Eye
 # Centered System
 from .centered_system import CenteredSystem
 
+# 3D Optics
+from .optics_3d import OpticalElement3D, ThinLens3D, RayBundle3D
+
 # Rays
 from .rays import (
     DynamicRay,
@@ -83,6 +86,11 @@ __all__ = [
     "ArcBeamStop",
     # Composite systems
     "Eye",
+    "CenteredSystem",
+    # 3D Optics
+    "OpticalElement3D",
+    "ThinLens3D",
+    "RayBundle3D",
     # Rays
     "DynamicRay",
     "RayBundle",
