@@ -330,6 +330,52 @@ class CenteredSystem(OpticalElement):
         center_x = (self.h_position + self.h_prime_position) / 2
         return np.array([center_x, 0.0, 0.0]) + self._visual_offset
 
+    def compute_image_position(self, object_position: np.ndarray) -> np.ndarray:
+        """
+        Compute the image position for a given object position.
+
+        Uses the current system parameters (H, H', focal length) and
+        a paraxial thin-lens relation with principal planes.
+
+        Parameters
+        ----------
+        object_position : np.ndarray
+            Object position in scene coordinates.
+
+        Returns
+        -------
+        np.ndarray
+            Image position in scene coordinates.
+        """
+        h = self.h_position_tracker.get_value()
+        h_prime = self.h_prime_position_tracker.get_value()
+        f = self.focal_length_tracker.get_value()
+
+        x_obj = object_position[0]
+        y_offset = self._visual_offset[1]
+        y_obj = object_position[1] - y_offset
+
+        # Object distance from H (positive if object is on the left side)
+        s = h - x_obj
+        if abs(s) < 1e-10:
+            return np.array([np.nan, np.nan, np.nan])
+
+        # Thin lens formula: 1/f = 1/s + 1/s'
+        inv_sp = (1.0 / f) - (1.0 / s)
+        if abs(inv_sp) < 1e-10:
+            s_prime = np.inf
+        else:
+            s_prime = 1.0 / inv_sp
+
+        # Image position relative to H'
+        x_img = h_prime + s_prime
+
+        # Transverse magnification
+        m = -s_prime / s if np.isfinite(s_prime) else np.inf
+        y_img = m * y_obj if np.isfinite(m) else np.nan
+
+        return np.array([x_img, y_img + y_offset, 0.0])
+
     def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
         """
         Calculate intersection with principal plane H only.
