@@ -122,6 +122,9 @@ class CenteredSystem(OpticalElement):
         self.focal_length = focal_length
         self.system_height = height
 
+        # Visual offset for shifting the whole system in the scene (y/z only)
+        self._visual_offset = np.array([0.0, 0.0, 0.0])
+
         # Boundary positions and heights (use defaults if not specified)
         self.left_boundary_position = (
             left_boundary_position if left_boundary_position is not None else h_position
@@ -183,8 +186,12 @@ class CenteredSystem(OpticalElement):
             (top_point, bottom_point, radius)
         """
         # Endpoints at top and bottom of boundary
-        top_point = np.array([x_position, boundary_height / 2, 0.0])
-        bottom_point = np.array([x_position, -boundary_height / 2, 0.0])
+        top_point = (
+            np.array([x_position, boundary_height / 2, 0.0]) + self._visual_offset
+        )
+        bottom_point = (
+            np.array([x_position, -boundary_height / 2, 0.0]) + self._visual_offset
+        )
 
         # Radius for the arc (larger = more curved)
         # Using height as base, multiply by curvature factor
@@ -213,7 +220,7 @@ class CenteredSystem(OpticalElement):
             stroke_color=self.h_color,
             stroke_width=self.h_stroke_width,
         )
-        self.h_plane.shift(RIGHT * self.h_position)
+        self.h_plane.shift(RIGHT * self.h_position + self._visual_offset)
 
         self.h_prime_plane = DashedLine(
             UP * self.system_height / 2,
@@ -222,7 +229,7 @@ class CenteredSystem(OpticalElement):
             stroke_color=self.h_color,
             stroke_width=self.h_stroke_width,
         )
-        self.h_prime_plane.shift(RIGHT * self.h_prime_position)
+        self.h_prime_plane.shift(RIGHT * self.h_prime_position + self._visual_offset)
 
         self.add(self.h_plane, self.h_prime_plane)
 
@@ -287,7 +294,7 @@ class CenteredSystem(OpticalElement):
         # F is at distance focal_length to the left of H
         f_position = self.h_position - self.focal_length
         self.f_point = Dot(
-            point=np.array([f_position, 0.0, 0.0]),
+            point=np.array([f_position, 0.0, 0.0]) + self._visual_offset,
             color=self.focal_point_color,
             radius=0.05,
         )
@@ -295,7 +302,7 @@ class CenteredSystem(OpticalElement):
         # F' is at distance focal_length to the right of H'
         f_prime_position = self.h_prime_position + self.focal_length
         self.f_prime_point = Dot(
-            point=np.array([f_prime_position, 0.0, 0.0]),
+            point=np.array([f_prime_position, 0.0, 0.0]) + self._visual_offset,
             color=self.focal_point_color,
             radius=0.05,
         )
@@ -321,7 +328,7 @@ class CenteredSystem(OpticalElement):
             Position of the optical center
         """
         center_x = (self.h_position + self.h_prime_position) / 2
-        return np.array([center_x, 0.0, 0.0])
+        return np.array([center_x, 0.0, 0.0]) + self._visual_offset
 
     def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
         """
@@ -356,12 +363,13 @@ class CenteredSystem(OpticalElement):
         # Calculate intersection point at H
         intersection_h = ray_start + t_h * ray_direction
 
-        # Check if within system height
-        if abs(intersection_h[1]) > self.system_height / 2:
+        # Check if within system height (relative to visual offset)
+        y_offset = self._visual_offset[1]
+        if abs(intersection_h[1] - y_offset) > self.system_height / 2:
             return None, False  # Outside system boundaries
 
         # Store the intersection height for propagation
-        self._h_intersection_height = intersection_h[1]
+        self._h_intersection_height = intersection_h[1] - y_offset
 
         return intersection_h, True
 
@@ -396,7 +404,10 @@ class CenteredSystem(OpticalElement):
             - teleport_point: point at H' where the outgoing ray starts (same height as H)
         """
         # Get the intersection height at H
-        y_intersection = getattr(self, "_h_intersection_height", intersection_point[1])
+        y_offset = self._visual_offset[1]
+        y_intersection = getattr(
+            self, "_h_intersection_height", intersection_point[1] - y_offset
+        )
 
         # Calculate new direction using paraxial approximation
         # The system acts like a thin lens at the principal planes
@@ -413,7 +424,11 @@ class CenteredSystem(OpticalElement):
 
         # Teleport to H' at the SAME height as the intersection with H
         teleport_point = np.array(
-            [self.h_prime_position_tracker.get_value(), y_intersection, 0.0]
+            [
+                self.h_prime_position_tracker.get_value(),
+                y_intersection + y_offset,
+                0.0,
+            ]
         )
 
         return new_direction, True, teleport_point
@@ -1064,30 +1079,57 @@ class CenteredSystem(OpticalElement):
             self._initial_right_boundary_position + h_prime_offset
         )
 
-        # Create temp system and replace submobjects
-        temp_system = CenteredSystem(
-            h_position=self.h_position,
-            h_prime_position=self.h_prime_position,
-            focal_length=self.focal_length,
-            height=self.system_height,
-            left_boundary_position=self.left_boundary_position,
-            left_boundary_height=self.left_boundary_height,
-            right_boundary_position=self.right_boundary_position,
-            right_boundary_height=self.right_boundary_height,
-            boundary_curvature=self.boundary_curvature,
-            show_labels=self.show_labels,
-            show_focal_points=self.show_focal_points,
-            h_color=self.h_color,
-            h_stroke_width=self.h_stroke_width,
-            h_dash_length=self.h_dash_length,
-            boundary_color=self.boundary_color,
-            boundary_stroke_width=self.boundary_stroke_width,
-            focal_point_color=self.focal_point_color,
-            label_color=self.label_color,
+        # 1) Move principal planes with visual offset
+        self.h_plane.move_to(
+            np.array([self.h_position, 0.0, 0.0]) + self._visual_offset
+        )
+        self.h_prime_plane.move_to(
+            np.array([self.h_prime_position, 0.0, 0.0]) + self._visual_offset
         )
 
-        # Clear and rebuild submobjects
-        self.submobjects = temp_system.submobjects
+        # 2) Update labels
+        if self.h_label is not None:
+            self.h_label.next_to(self.h_plane, DOWN, buff=0.2)
+        if self.h_prime_label is not None:
+            self.h_prime_label.next_to(self.h_prime_plane, DOWN, buff=0.2)
+
+        # 3) Update boundaries geometry
+        top_l, bottom_l, radius_l = self._generate_boundary_arc(
+            self.left_boundary_position, self.left_boundary_height, is_left=True
+        )
+        new_left = ArcBetweenPoints(
+            top_l,
+            bottom_l,
+            radius=radius_l,
+            stroke_color=self.boundary_color,
+            stroke_width=self.boundary_stroke_width,
+            fill_opacity=0,
+        )
+        new_left.signed_radius = radius_l
+        self.left_boundary.become(new_left)
+
+        top_r, bottom_r, radius_r = self._generate_boundary_arc(
+            self.right_boundary_position, self.right_boundary_height, is_left=False
+        )
+        new_right = ArcBetweenPoints(
+            top_r,
+            bottom_r,
+            radius=radius_r,
+            stroke_color=self.boundary_color,
+            stroke_width=self.boundary_stroke_width,
+            fill_opacity=0,
+        )
+        new_right.signed_radius = radius_r
+        self.right_boundary.become(new_right)
+
+        # 4) Update focal points
+        if self.show_focal_points and self.f_point is not None:
+            f_position = self.h_position - self.focal_length
+            f_prime_position = self.h_prime_position + self.focal_length
+            self.f_point.move_to(np.array([f_position, 0.0, 0.0]) + self._visual_offset)
+            self.f_prime_point.move_to(
+                np.array([f_prime_position, 0.0, 0.0]) + self._visual_offset
+            )
 
     def _update_from_trackers(self, mobject):
         """
@@ -1122,8 +1164,12 @@ class CenteredSystem(OpticalElement):
         )
 
         # 1) Move principal planes
-        self.h_plane.move_to(np.array([self.h_position, 0.0, 0.0]))
-        self.h_prime_plane.move_to(np.array([self.h_prime_position, 0.0, 0.0]))
+        self.h_plane.move_to(
+            np.array([self.h_position, 0.0, 0.0]) + self._visual_offset
+        )
+        self.h_prime_plane.move_to(
+            np.array([self.h_prime_position, 0.0, 0.0]) + self._visual_offset
+        )
 
         # 2) Update labels
         if self.h_label is not None:
@@ -1164,8 +1210,81 @@ class CenteredSystem(OpticalElement):
         if self.show_focal_points and self.f_point is not None:
             f_position = self.h_position - self.focal_length
             f_prime_position = self.h_prime_position + self.focal_length
-            self.f_point.move_to(np.array([f_position, 0.0, 0.0]))
-            self.f_prime_point.move_to(np.array([f_prime_position, 0.0, 0.0]))
+            self.f_point.move_to(np.array([f_position, 0.0, 0.0]) + self._visual_offset)
+            self.f_prime_point.move_to(
+                np.array([f_prime_position, 0.0, 0.0]) + self._visual_offset
+            )
+
+    def shift(self, *vectors):
+        """
+        Shift the system while keeping trackers and visuals in sync.
+
+        This updates the H/H' trackers (x-shift) and moves the visual offset (y/z).
+        """
+        if len(vectors) == 0:
+            return self
+
+        total_shift = np.sum(np.array(vectors), axis=0)
+        dx, dy, dz = total_shift
+
+        if abs(dx) > 1e-10:
+            new_h = self.h_position_tracker.get_value() + dx
+            new_h_prime = self.h_prime_position_tracker.get_value() + dx
+
+            self.h_position_tracker.set_value(new_h)
+            self.h_prime_position_tracker.set_value(new_h_prime)
+
+            self.h_position = new_h
+            self.h_prime_position = new_h_prime
+
+            self._initial_h_position += dx
+            self._initial_h_prime_position += dx
+            self.left_boundary_position += dx
+            self.right_boundary_position += dx
+            self._initial_left_boundary_position += dx
+            self._initial_right_boundary_position += dx
+
+        if abs(dy) > 1e-10 or abs(dz) > 1e-10:
+            self._visual_offset = self._visual_offset + np.array([0.0, dy, dz])
+
+        self._manual_update_visual()
+        return self
+
+    def interpolate(self, mobject1, mobject2, alpha, *args, **kwargs):
+        """
+        Interpolate state during animations to keep trackers synchronized.
+
+        This ensures rays update continuously when using obj.animate.shift(...).
+        """
+        super().interpolate(mobject1, mobject2, alpha, *args, **kwargs)
+
+        # Interpolate tracker values directly (independent of visual updater)
+        new_h = mobject1.h_position_tracker.get_value() + alpha * (
+            mobject2.h_position_tracker.get_value()
+            - mobject1.h_position_tracker.get_value()
+        )
+        new_h_prime = mobject1.h_prime_position_tracker.get_value() + alpha * (
+            mobject2.h_prime_position_tracker.get_value()
+            - mobject1.h_prime_position_tracker.get_value()
+        )
+
+        self.h_position = new_h
+        self.h_prime_position = new_h_prime
+        self.h_position_tracker.set_value(new_h)
+        self.h_prime_position_tracker.set_value(new_h_prime)
+
+        # Interpolate visual offset (y/z)
+        self._visual_offset = mobject1._visual_offset + alpha * (
+            mobject2._visual_offset - mobject1._visual_offset
+        )
+
+        # Interpolate boundary positions for inside/visibility logic
+        self.left_boundary_position = mobject1.left_boundary_position + alpha * (
+            mobject2.left_boundary_position - mobject1.left_boundary_position
+        )
+        self.right_boundary_position = mobject1.right_boundary_position + alpha * (
+            mobject2.right_boundary_position - mobject1.right_boundary_position
+        )
 
     def animate_h_position(self, new_h_position: float, run_time: float = 1.0):
         """Animate H by driving its ValueTracker (updater remains active)."""

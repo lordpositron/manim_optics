@@ -154,8 +154,27 @@ class ThinLens3D(OpticalElement3D):
     ):
         super().__init__(position=position, normal_vector=normal_vector, **kwargs)
 
+        # Propriétés optiques avec trackers
         self.focal_length = focal_length
+        self.focal_length_tracker = ValueTracker(focal_length)
+
         self.aperture_radius = aperture_radius
+        self.aperture_radius_tracker = ValueTracker(aperture_radius)
+
+        # Position avec trackers pour x, y, z
+        self.position = np.array(position, dtype=float)
+        self.position_x_tracker = ValueTracker(self.position[0])
+        self.position_y_tracker = ValueTracker(self.position[1])
+        self.position_z_tracker = ValueTracker(self.position[2])
+
+        # Normal vector avec trackers
+        self.normal = np.array(normal_vector, dtype=float)
+        self.normal = self.normal / np.linalg.norm(self.normal)
+        self.normal_x_tracker = ValueTracker(self.normal[0])
+        self.normal_y_tracker = ValueTracker(self.normal[1])
+        self.normal_z_tracker = ValueTracker(self.normal[2])
+
+        # Propriétés visuelles (pas de trackers nécessaires)
         self.display_mode = display_mode
         self.thickness = thickness
         self.R1 = R1
@@ -169,6 +188,9 @@ class ThinLens3D(OpticalElement3D):
 
         # Créer le visuel
         self._create_visual()
+
+        # Ajouter les updaters pour synchroniser les valeurs
+        self.add_updater(self._update_properties)
 
     def _compute_local_frame(self):
         """
@@ -331,6 +353,194 @@ class ThinLens3D(OpticalElement3D):
         self.add(focal_front, focal_back)
         self.focal_points = VGroup(focal_front, focal_back)
 
+    def _update_properties(self, mobject):
+        """
+        Updater pour synchroniser toutes les propriétés avec leurs trackers.
+
+        Met à jour la focale, l'ouverture, la position et l'orientation.
+        Recalcule le repère local et met à jour les points focaux si nécessaire.
+        """
+        # Synchroniser la focale
+        self.focal_length = self.focal_length_tracker.get_value()
+
+        # Synchroniser l'ouverture
+        self.aperture_radius = self.aperture_radius_tracker.get_value()
+
+        # Synchroniser la position
+        new_position = np.array(
+            [
+                self.position_x_tracker.get_value(),
+                self.position_y_tracker.get_value(),
+                self.position_z_tracker.get_value(),
+            ]
+        )
+
+        # Si la position a changé, déplacer tout le VGroup
+        if not np.allclose(new_position, self.position):
+            delta = new_position - self.position
+            self.shift(delta)
+            self.position = new_position
+
+        # Synchroniser le vecteur normal
+        new_normal = np.array(
+            [
+                self.normal_x_tracker.get_value(),
+                self.normal_y_tracker.get_value(),
+                self.normal_z_tracker.get_value(),
+            ]
+        )
+        new_normal = new_normal / np.linalg.norm(new_normal)
+
+        # Si l'orientation a changé, recalculer le repère local
+        if not np.allclose(new_normal, self.normal):
+            self.normal = new_normal
+            self._compute_local_frame()
+
+        # Mettre à jour les points focaux si présents
+        if hasattr(self, "focal_points"):
+            f_front = self.position - self.focal_length * self.n
+            f_back = self.position + self.focal_length * self.n
+
+            if len(self.focal_points) >= 2:
+                self.focal_points[0].move_to(f_front)
+                self.focal_points[1].move_to(f_back)
+
+    def animate_focal_length(self, new_focal_length, run_time=2.0, **kwargs):
+        """
+        Anime un changement de distance focale.
+
+        Parameters
+        ----------
+        new_focal_length : float
+            Nouvelle distance focale cible
+        run_time : float
+            Durée de l'animation
+        **kwargs
+            Arguments supplémentaires pour l'animation
+
+        Returns
+        -------
+        Animation
+            Animation qui change la distance focale
+        """
+        return self.focal_length_tracker.animate(run_time=run_time, **kwargs).set_value(
+            new_focal_length
+        )
+
+    def set_focal_length(self, focal_length):
+        """Définit la distance focale immédiatement sans animation."""
+        self.focal_length = focal_length
+        self.focal_length_tracker.set_value(focal_length)
+        return self
+
+    def animate_aperture_radius(self, new_radius, run_time=2.0, **kwargs):
+        """
+        Anime un changement de rayon d'ouverture.
+
+        Parameters
+        ----------
+        new_radius : float
+            Nouveau rayon d'ouverture
+        run_time : float
+            Durée de l'animation
+        **kwargs
+            Arguments supplémentaires pour l'animation
+
+        Returns
+        -------
+        Animation
+            Animation qui change le rayon d'ouverture
+        """
+        return self.aperture_radius_tracker.animate(
+            run_time=run_time, **kwargs
+        ).set_value(new_radius)
+
+    def set_aperture_radius(self, radius):
+        """Définit le rayon d'ouverture immédiatement sans animation."""
+        self.aperture_radius = radius
+        self.aperture_radius_tracker.set_value(radius)
+        return self
+
+    def animate_position(self, new_position, run_time=2.0, **kwargs):
+        """
+        Anime un changement de position 3D.
+
+        Parameters
+        ----------
+        new_position : np.ndarray
+            Nouvelle position [x, y, z]
+        run_time : float
+            Durée de l'animation
+        **kwargs
+            Arguments supplémentaires pour l'animation
+
+        Returns
+        -------
+        AnimationGroup
+            Groupe d'animations pour x, y et z
+        """
+        new_position = np.array(new_position, dtype=float)
+        return AnimationGroup(
+            self.position_x_tracker.animate(run_time=run_time, **kwargs).set_value(
+                new_position[0]
+            ),
+            self.position_y_tracker.animate(run_time=run_time, **kwargs).set_value(
+                new_position[1]
+            ),
+            self.position_z_tracker.animate(run_time=run_time, **kwargs).set_value(
+                new_position[2]
+            ),
+        )
+
+    def set_position_3d(self, position):
+        """Définit la position 3D immédiatement sans animation."""
+        position = np.array(position, dtype=float)
+        self.position_x_tracker.set_value(position[0])
+        self.position_y_tracker.set_value(position[1])
+        self.position_z_tracker.set_value(position[2])
+        return self
+
+    def animate_normal_vector(self, new_normal, run_time=2.0, **kwargs):
+        """
+        Anime un changement d'orientation (vecteur normal).
+
+        Parameters
+        ----------
+        new_normal : np.ndarray
+            Nouveau vecteur normal [nx, ny, nz]
+        run_time : float
+            Durée de l'animation
+        **kwargs
+            Arguments supplémentaires pour l'animation
+
+        Returns
+        -------
+        AnimationGroup
+            Groupe d'animations pour les composantes du vecteur normal
+        """
+        new_normal = np.array(new_normal, dtype=float)
+        new_normal = new_normal / np.linalg.norm(new_normal)
+        return AnimationGroup(
+            self.normal_x_tracker.animate(run_time=run_time, **kwargs).set_value(
+                new_normal[0]
+            ),
+            self.normal_y_tracker.animate(run_time=run_time, **kwargs).set_value(
+                new_normal[1]
+            ),
+            self.normal_z_tracker.animate(run_time=run_time, **kwargs).set_value(
+                new_normal[2]
+            ),
+        )
+
+    def set_normal_vector(self, normal):
+        """Définit le vecteur normal immédiatement sans animation."""
+        normal = np.array(normal, dtype=float)
+        normal = normal / np.linalg.norm(normal)
+        self.normal_x_tracker.set_value(normal[0])
+        self.normal_y_tracker.set_value(normal[1])
+        self.normal_z_tracker.set_value(normal[2])
+        return self
+
     def propagate_ray_3d(self, ray_start, ray_direction, intersection_point):
         """
         Propage un rayon à travers la lentille mince en 3D.
@@ -422,6 +632,9 @@ class RayBundle3D(VGroup):
         Couleur des rayons
     stroke_width : float
         Épaisseur des rayons
+    auto_update : bool
+        Si True, les rayons se recalculent automatiquement à chaque frame
+        quand les éléments optiques bougent (défaut: True)
     **kwargs
         Arguments supplémentaires pour VGroup
     """
@@ -434,6 +647,7 @@ class RayBundle3D(VGroup):
         max_length=20.0,
         color=YELLOW,
         stroke_width=2,
+        auto_update=True,
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -445,8 +659,14 @@ class RayBundle3D(VGroup):
         self.max_length = max_length
         self.ray_color = color
         self.ray_stroke_width = stroke_width
+        self.auto_update = auto_update
 
+        # Créer les rayons initiaux
         self._create_rays()
+
+        # Ajouter l'updater si auto_update est activé
+        if self.auto_update:
+            self.add_updater(self._update_rays)
 
     def _create_rays(self):
         """Crée et trace tous les rayons du faisceau."""
@@ -508,3 +728,28 @@ class RayBundle3D(VGroup):
             path.append(final_pos)
 
         return path
+
+    def _update_rays(self, mobject, dt=0):
+        """
+        Updater qui recalcule tous les rayons à chaque frame.
+
+        Permet aux rayons de se mettre à jour automatiquement quand les
+        éléments optiques bougent ou changent de propriétés.
+        """
+        # Effacer tous les segments existants
+        self.submobjects.clear()
+
+        # Recréer les rayons avec les positions actuelles des éléments
+        for start_point in self.start_points:
+            ray_path = self._trace_single_ray(start_point, self.direction)
+
+            if len(ray_path) > 1:
+                # Créer les segments du rayon
+                for i in range(len(ray_path) - 1):
+                    segment = Line3D(
+                        start=ray_path[i],
+                        end=ray_path[i + 1],
+                        color=self.ray_color,
+                        stroke_width=self.ray_stroke_width,
+                    )
+                    self.add(segment)
