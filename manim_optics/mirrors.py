@@ -26,7 +26,7 @@ class Mirror(OpticalElement):
         super().__init__(
             refractive_index_before=refractive_index,
             refractive_index_after=-refractive_index,
-            **kwargs
+            **kwargs,
         )
 
     def is_mirror(self) -> bool:
@@ -81,7 +81,20 @@ class PlaneMirror(Mirror):
     A vertical mirror that reflects rays according to the law of reflection.
     """
 
-    def __init__(self, height: float = 3.0, refractive_index: float = 1.0, **kwargs):
+    def __init__(
+        self,
+        height: float = 3.0,
+        refractive_index: float = 1.0,
+        coating_side: str = "right",
+        coating_count: int = 5,
+        coating_angle_deg: float = 45.0,
+        coating_length_ratio: float = 0.05,
+        stroke_width: float = 4.0,
+        coating_stroke_width: float | None = None,
+        mirror_color=GREY_A,
+        coating_color=GREY_C,
+        **kwargs,
+    ):
         """
         Initialize a plane mirror.
 
@@ -91,9 +104,35 @@ class PlaneMirror(Mirror):
             Height of the mirror
         refractive_index : float
             Refractive index of the medium (default: 1.0 for air)
+        coating_side : str
+            Side where coating indicators are drawn ("left" or "right")
+        coating_count : int
+            Number of coating indicators along the mirror
+        coating_angle_deg : float
+            Orientation of coating indicators in degrees (default: 45°)
+        coating_length_ratio : float
+            Indicator length as a fraction of mirror height (default: 0.05)
+        stroke_width : float
+            Stroke width of the mirror line (default: 4)
+        coating_stroke_width : float, optional
+            Stroke width of the coating indicators (defaults to mirror stroke width)
+        mirror_color : color
+            Color of the mirror line
+        coating_color : color
+            Color of the coating indicators
         """
         super().__init__(refractive_index=refractive_index, **kwargs)
         self.mirror_height = height
+        self.coating_side = coating_side
+        self.coating_count = coating_count
+        self.coating_angle_deg = coating_angle_deg
+        self.coating_length_ratio = coating_length_ratio
+        self.stroke_width = stroke_width
+        self.coating_stroke_width = (
+            stroke_width if coating_stroke_width is None else coating_stroke_width
+        )
+        self.mirror_color = mirror_color
+        self.coating_color = coating_color
 
         # Create visual representation
         self._create_mirror_visual()
@@ -104,25 +143,49 @@ class PlaneMirror(Mirror):
         mirror_line = Line(
             UP * self.mirror_height / 2,
             DOWN * self.mirror_height / 2,
-            stroke_width=6,
-            color=GREY_A,
+            stroke_width=self.stroke_width,
+            color=self.mirror_color,
         )
 
         # Reflective coating indicator (small lines)
-        num_lines = 5
-        for i in range(num_lines):
-            y = (i - num_lines / 2 + 0.5) * self.mirror_height / num_lines
-            small_line = Line(
-                LEFT * 0.1 + UP * y, ORIGIN + UP * y, stroke_width=2, color=GREY_C
-            )
-            self.add(small_line)
+        if self.coating_count > 0:
+            line_length = self.mirror_height * self.coating_length_ratio
+            angle = self.coating_angle_deg * DEGREES
+            direction = np.array([np.cos(angle), np.sin(angle), 0.0])
+            side_sign = -1.0 if self.coating_side == "left" else 1.0
+            offset = side_sign * 0.02 * self.mirror_height
 
+            for i in range(self.coating_count):
+                y = (-self.mirror_height / 2) + (
+                    i + 0.5
+                ) * self.mirror_height / self.coating_count
+                center = np.array([offset, y, 0.0])
+                start_pos = center - 0.5 * line_length * direction
+                end_pos = center + 0.5 * line_length * direction
+                small_line = Line(
+                    start_pos,
+                    end_pos,
+                    stroke_width=self.coating_stroke_width,
+                    color=self.coating_color,
+                )
+                self.add(small_line)
+
+        self.mirror_line = mirror_line
         self.add(mirror_line)
+
+    def get_optical_plane_position(self) -> np.ndarray:
+        """
+        Get the position of the optical plane (the mirror line).
+
+        Overrides the base method because the VGroup center can include
+        coating indicators, which would give an incorrect position.
+        """
+        return self.mirror_line.get_center()
 
     def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
         """Calculate intersection with the mirror plane."""
         # Mirror is a vertical plane at x = mirror_center_x
-        mirror_center = self.get_center()
+        mirror_center = self.get_optical_plane_position()
         mirror_x = mirror_center[0]
 
         if abs(ray_direction[0]) < 1e-10:
@@ -173,7 +236,7 @@ class SphericalMirror(Mirror):
         refractive_index: float = 1.0,
         aperture_angle: float = 60 * DEGREES,
         side: str = "left",
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize a spherical mirror.
