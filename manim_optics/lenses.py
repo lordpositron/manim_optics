@@ -418,7 +418,11 @@ class ThinLens(OpticalElement):
             theta_in = np.sign(ray_direction[1]) * 1e6
 
         # Apply transfer matrix
-        M = self.get_transfer_matrix()
+        # When the ray comes from the right, the lens must act with opposite focal sign
+        # to preserve the same physical behavior in reverse propagation.
+        current_focal = self.focal_length_tracker.get_value()
+        effective_focal = current_focal if ray_direction[0] >= 0 else -current_focal
+        M = np.array([[1.0, 0.0], [-1.0 / effective_focal, 1.0]])
         state_in = np.array([y_in, theta_in])
         state_out = M @ state_in
 
@@ -428,7 +432,8 @@ class ThinLens(OpticalElement):
         # Convert output angle back to direction vector
         # Direction: [1, θ, 0] (then normalize)
         # In paraxial approximation: direction ≈ [1, θ, 0]
-        new_direction = np.array([1.0, theta_out, 0.0])
+        direction_sign = 1.0 if ray_direction[0] >= 0 else -1.0
+        new_direction = np.array([direction_sign, theta_out * direction_sign, 0.0])
         new_direction = new_direction / np.linalg.norm(new_direction)
 
         return new_direction, True
