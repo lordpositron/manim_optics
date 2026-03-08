@@ -209,3 +209,4 @@ __marimo__/
 perso/
 media/
 .github
+.DS_Store

@@ -327,8 +327,42 @@ class CenteredSystem(OpticalElement):
         np.ndarray
             Position of the optical center
         """
-        center_x = (self.h_position + self.h_prime_position) / 2
-        return np.array([center_x, 0.0, 0.0]) + self._visual_offset
+        h = self._get_current_h_position()
+        h_prime = self._get_current_h_prime_position()
+        center_x = (h + h_prime) / 2
+        return np.array([center_x, self._get_current_optical_axis_y(), 0.0])
+
+    def _get_current_h_position(self) -> float:
+        """Get current H position from live geometry when available."""
+        if hasattr(self, "h_plane") and self.h_plane is not None:
+            return float(self.h_plane.get_center()[0])
+        return float(self.h_position_tracker.get_value())
+
+    def _get_current_h_prime_position(self) -> float:
+        """Get current H' position from live geometry when available."""
+        if hasattr(self, "h_prime_plane") and self.h_prime_plane is not None:
+            return float(self.h_prime_plane.get_center()[0])
+        return float(self.h_prime_position_tracker.get_value())
+
+    def _get_current_optical_axis_y(self) -> float:
+        """Get current optical-axis y from live geometry when available."""
+        if hasattr(self, "h_plane") and self.h_plane is not None:
+            return float(self.h_plane.get_center()[1])
+        return float(self._visual_offset[1])
+
+    def _get_current_focal_length(self) -> float:
+        """Get current focal length from tracker."""
+        return float(self.focal_length_tracker.get_value())
+
+    def _get_current_boundary_positions(self) -> tuple:
+        """Get current left/right boundary x-positions from live geometry."""
+        left_x = self.left_boundary_position
+        right_x = self.right_boundary_position
+        if hasattr(self, "left_boundary") and self.left_boundary is not None:
+            left_x = float(self.left_boundary.get_start()[0])
+        if hasattr(self, "right_boundary") and self.right_boundary is not None:
+            right_x = float(self.right_boundary.get_start()[0])
+        return left_x, right_x
 
     def compute_image_position(self, object_position: np.ndarray) -> np.ndarray:
         """
@@ -347,13 +381,14 @@ class CenteredSystem(OpticalElement):
         np.ndarray
             Image position in scene coordinates.
         """
-        h = self.h_position_tracker.get_value()
-        h_prime = self.h_prime_position_tracker.get_value()
-        f = self.focal_length_tracker.get_value()
+        h = self._get_current_h_position()
+        h_prime = self._get_current_h_prime_position()
+        f = self._get_current_focal_length()
 
+        object_position = np.array(object_position, dtype=float)
         x_obj = object_position[0]
-        y_offset = self._visual_offset[1]
-        y_obj = object_position[1] - y_offset
+        optical_axis_y = self._get_current_optical_axis_y()
+        y_obj = object_position[1] - optical_axis_y
 
         # Object distance from H (positive if object is on the left side)
         s = h - x_obj
@@ -374,7 +409,7 @@ class CenteredSystem(OpticalElement):
         m = -s_prime / s if np.isfinite(s_prime) else np.inf
         y_img = m * y_obj if np.isfinite(m) else np.nan
 
-        return np.array([x_img, y_img + y_offset, 0.0])
+        return np.array([x_img, y_img + optical_axis_y, 0.0])
 
     def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
         """
@@ -401,7 +436,8 @@ class CenteredSystem(OpticalElement):
             return None, False  # Ray parallel to H
 
         # Calculate intersection with H only
-        t_h = (self.h_position_tracker.get_value() - ray_start[0]) / ray_direction[0]
+        h = self._get_current_h_position()
+        t_h = (h - ray_start[0]) / ray_direction[0]
 
         if t_h <= 0:
             return None, False  # H is behind the ray
@@ -410,7 +446,7 @@ class CenteredSystem(OpticalElement):
         intersection_h = ray_start + t_h * ray_direction
 
         # Check if within system height (relative to visual offset)
-        y_offset = self._visual_offset[1]
+        y_offset = self._get_current_optical_axis_y()
         if abs(intersection_h[1] - y_offset) > self.system_height / 2:
             return None, False  # Outside system boundaries
 
@@ -450,7 +486,7 @@ class CenteredSystem(OpticalElement):
             - teleport_point: point at H' where the outgoing ray starts (same height as H)
         """
         # Get the intersection height at H
-        y_offset = self._visual_offset[1]
+        y_offset = self._get_current_optical_axis_y()
         y_intersection = getattr(
             self, "_h_intersection_height", intersection_point[1] - y_offset
         )
@@ -460,9 +496,7 @@ class CenteredSystem(OpticalElement):
         tan_theta_in = (
             ray_direction[1] / ray_direction[0] if abs(ray_direction[0]) > 1e-10 else 0
         )
-        tan_theta_out = (
-            tan_theta_in - y_intersection / self.focal_length_tracker.get_value()
-        )
+        tan_theta_out = tan_theta_in - y_intersection / self._get_current_focal_length()
 
         # New direction (normalized)
         new_direction = np.array([1.0, tan_theta_out, 0.0])
@@ -471,7 +505,7 @@ class CenteredSystem(OpticalElement):
         # Teleport to H' at the SAME height as the intersection with H
         teleport_point = np.array(
             [
-                self.h_prime_position_tracker.get_value(),
+                self._get_current_h_prime_position(),
                 y_intersection + y_offset,
                 0.0,
             ]
@@ -504,7 +538,9 @@ class CenteredSystem(OpticalElement):
 
         # Check if this is a segment that crosses through the system
         # From before/at H to at/after H'
-        crosses_into_system = x1 <= self.h_position and x2 >= self.h_prime_position
+        h = self._get_current_h_position()
+        h_prime = self._get_current_h_prime_position()
+        crosses_into_system = x1 <= h and x2 >= h_prime
         return False
 
     def _intersect_arc_boundary(
@@ -654,6 +690,9 @@ class CenteredSystem(OpticalElement):
             [(start, end, visible, dashed), ...] segments
         """
         x1, x2 = point1[0], point2[0]
+        h = self._get_current_h_position()
+        h_prime = self._get_current_h_prime_position()
+        left_boundary_x, right_boundary_x = self._get_current_boundary_positions()
 
         # Direction vector for intersection calculations
         segment_direction = point2 - point1
@@ -666,16 +705,13 @@ class CenteredSystem(OpticalElement):
         # Check if segment crosses H and H' planes
         # A segment "crosses" if it goes through (strictly) or ends exactly at the boundary
         crosses_h = (
-            (x1 < self.h_position < x2)
-            or (x2 < self.h_position < x1)
-            or abs(x1 - self.h_position) < 1e-6
-            or abs(x2 - self.h_position) < 1e-6
+            (x1 < h < x2) or (x2 < h < x1) or abs(x1 - h) < 1e-6 or abs(x2 - h) < 1e-6
         )
         crosses_hprime = (
-            (x1 < self.h_prime_position < x2)
-            or (x2 < self.h_prime_position < x1)
-            or abs(x1 - self.h_prime_position) < 1e-6
-            or abs(x2 - self.h_prime_position) < 1e-6
+            (x1 < h_prime < x2)
+            or (x2 < h_prime < x1)
+            or abs(x1 - h_prime) < 1e-6
+            or abs(x2 - h_prime) < 1e-6
         )
 
         # CRITICAL: Teleportation ONLY occurs from H to H' in the direction of ray travel
@@ -689,28 +725,18 @@ class CenteredSystem(OpticalElement):
         # Check if H and H' are both in this segment
         min_x = min(x1, x2)
         max_x = max(x1, x2)
-        h_in_segment = min_x - tolerance <= self.h_position <= max_x + tolerance
-        hprime_in_segment = (
-            min_x - tolerance <= self.h_prime_position <= max_x + tolerance
-        )
+        h_in_segment = min_x - tolerance <= h <= max_x + tolerance
+        hprime_in_segment = min_x - tolerance <= h_prime <= max_x + tolerance
 
         # Teleportation occurs ONLY if:
         # 1. Both H and H' are in the segment
         # 2. The ray encounters H BEFORE H' (in the direction of travel)
         if ray_going_right:
             # Ray goes left-to-right: H must be before H' for teleportation
-            crosses_h_to_hprime = (
-                h_in_segment
-                and hprime_in_segment
-                and (self.h_position < self.h_prime_position)
-            )
+            crosses_h_to_hprime = h_in_segment and hprime_in_segment and (h < h_prime)
         else:
             # Ray goes right-to-left: H must be after H' for teleportation
-            crosses_h_to_hprime = (
-                h_in_segment
-                and hprime_in_segment
-                and (self.h_position > self.h_prime_position)
-            )
+            crosses_h_to_hprime = h_in_segment and hprime_in_segment and (h > h_prime)
 
         # Teleportation detection complete
 
@@ -752,14 +778,14 @@ class CenteredSystem(OpticalElement):
             # Calculate actual intersection heights with H and H' planes
             # Linear interpolation along the segment
             if abs(x2 - x1) > 1e-10:
-                t_h = (self.h_position - x1) / (x2 - x1)
+                t_h = (h - x1) / (x2 - x1)
                 y_at_h = point1[1] + t_h * (point2[1] - point1[1])
-                point_at_h = np.array([self.h_position, y_at_h, 0.0])
-                point_at_hprime = np.array([self.h_prime_position, y_at_h, 0.0])
+                point_at_h = np.array([h, y_at_h, 0.0])
+                point_at_hprime = np.array([h_prime, y_at_h, 0.0])
             else:
                 # Vertical segment - use same y
-                point_at_h = np.array([self.h_position, point1[1], 0.0])
-                point_at_hprime = np.array([self.h_prime_position, point1[1], 0.0])
+                point_at_h = np.array([h, point1[1], 0.0])
+                point_at_hprime = np.array([h_prime, point1[1], 0.0])
             split_points.append(("h", point_at_h))
             split_points.append(("hprime", point_at_hprime))
 
@@ -779,9 +805,7 @@ class CenteredSystem(OpticalElement):
         if not split_points:
             # No intersections - determine style based on position
             x_mid = (x1 + x2) / 2
-            is_inside = (
-                self.left_boundary_position <= x_mid <= self.right_boundary_position
-            )
+            is_inside = left_boundary_x <= x_mid <= right_boundary_x
             return [(point1, point2, True, is_inside)]
 
         # Create segments between split points
@@ -791,9 +815,7 @@ class CenteredSystem(OpticalElement):
 
         # Determine initial state: are we starting inside or outside boundaries?
         # Check if point1 x-position is within the boundary arc region
-        is_inside_boundaries = (
-            self.left_boundary_position <= x1 <= self.right_boundary_position
-        )
+        is_inside_boundaries = left_boundary_x <= x1 <= right_boundary_x
 
         i = 0
         while i < len(split_points):
@@ -866,8 +888,8 @@ class CenteredSystem(OpticalElement):
         # SAFETY CHECK: Ensure NO visible segment exists between the two principal planes
         # This is critical - any segment between H and H' MUST be invisible (regardless of order)
         verified_result = []
-        min_principal = min(self.h_position, self.h_prime_position)
-        max_principal = max(self.h_position, self.h_prime_position)
+        min_principal = min(h, h_prime)
+        max_principal = max(h, h_prime)
 
         for seg_start, seg_end, visible, dashed in result:
             seg_x1, seg_x2 = seg_start[0], seg_end[0]
@@ -913,7 +935,8 @@ class CenteredSystem(OpticalElement):
             2x2 ABCD matrix
         """
         # Simplified: treat as thin lens at optical center
-        return np.array([[1.0, 0.0], [-1.0 / self.focal_length, 1.0]])
+        focal = self._get_current_focal_length()
+        return np.array([[1.0, 0.0], [-1.0 / focal, 1.0]])
 
     def is_ray_inside_system(
         self, point: np.ndarray, ray_direction: np.ndarray
@@ -1304,33 +1327,17 @@ class CenteredSystem(OpticalElement):
         """
         super().interpolate(mobject1, mobject2, alpha, *args, **kwargs)
 
-        # Interpolate tracker values directly (independent of visual updater)
-        new_h = mobject1.h_position_tracker.get_value() + alpha * (
-            mobject2.h_position_tracker.get_value()
-            - mobject1.h_position_tracker.get_value()
-        )
-        new_h_prime = mobject1.h_prime_position_tracker.get_value() + alpha * (
-            mobject2.h_prime_position_tracker.get_value()
-            - mobject1.h_prime_position_tracker.get_value()
-        )
+        # Keep cached scalar state coherent with the interpolated geometry.
+        self.h_position = self._get_current_h_position()
+        self.h_prime_position = self._get_current_h_prime_position()
+        self._visual_offset[1] = self._get_current_optical_axis_y()
 
-        self.h_position = new_h
-        self.h_prime_position = new_h_prime
-        self.h_position_tracker.set_value(new_h)
-        self.h_prime_position_tracker.set_value(new_h_prime)
+        left_x, right_x = self._get_current_boundary_positions()
+        self.left_boundary_position = left_x
+        self.right_boundary_position = right_x
 
-        # Interpolate visual offset (y/z)
-        self._visual_offset = mobject1._visual_offset + alpha * (
-            mobject2._visual_offset - mobject1._visual_offset
-        )
-
-        # Interpolate boundary positions for inside/visibility logic
-        self.left_boundary_position = mobject1.left_boundary_position + alpha * (
-            mobject2.left_boundary_position - mobject1.left_boundary_position
-        )
-        self.right_boundary_position = mobject1.right_boundary_position + alpha * (
-            mobject2.right_boundary_position - mobject1.right_boundary_position
-        )
+        # Focal length remains tracker-driven.
+        self.focal_length = self._get_current_focal_length()
 
     def animate_h_position(self, new_h_position: float, run_time: float = 1.0):
         """Animate H by driving its ValueTracker (updater remains active)."""
