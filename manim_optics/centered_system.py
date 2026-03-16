@@ -236,10 +236,10 @@ class CenteredSystem(OpticalElement):
         # 2. Labels H and H'
         if self.show_labels:
             self.h_label = Text("H", color=self.label_color, font_size=24)
-            self.h_label.next_to(self.h_plane, DOWN, buff=0.2)
+            self.h_label.always.next_to(self.h_plane, DOWN, buff=0.2)
 
             self.h_prime_label = Text("H'", color=self.label_color, font_size=24)
-            self.h_prime_label.next_to(self.h_prime_plane, DOWN, buff=0.2)
+            self.h_prime_label.always.next_to(self.h_prime_plane, DOWN, buff=0.2)
 
             self.add(self.h_label, self.h_prime_label)
         else:
@@ -311,10 +311,10 @@ class CenteredSystem(OpticalElement):
 
         # Labels for focal points
         f_label = Text("F", color=self.focal_point_color, font_size=20)
-        f_label.next_to(self.f_point, DOWN, buff=0.1)
+        f_label.always.next_to(self.f_point, DOWN, buff=0.2)
 
         f_prime_label = Text("F'", color=self.focal_point_color, font_size=20)
-        f_prime_label.next_to(self.f_prime_point, DOWN, buff=0.1)
+        f_prime_label.always.next_to(self.f_prime_point, DOWN, buff=0.2)
 
         self.add(f_label, f_prime_label)
 
