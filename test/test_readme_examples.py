@@ -223,6 +223,7 @@ class Example7_Focal3D(ThreeDScene):
     """
 
     def construct(self):
+        self.begin_ambient_camera_rotation(rate=0.1)
         lens = ThinLens3D(
             focal_length=4.0,
             aperture_radius=2.5,
@@ -234,18 +235,14 @@ class Example7_Focal3D(ThreeDScene):
             show_focal_points=True,
         )
 
-        ray_starts = [
-            np.array([-6, y, z])
-            for y in np.linspace(-2, 2, 5)
-            for z in np.linspace(-2, 2, 5)
-        ]
+        ray_starts = [np.array([-6, y, 0]) for y in np.linspace(-1.5, 2, 5)]
 
         rays = RayBundle3D(
             start_points=ray_starts,
             direction_vector=RIGHT,
             optical_elements=[lens],
             color=YELLOW,
-            stroke_width=2,
+            stroke_width=1,
             max_length=12,
         )
 
