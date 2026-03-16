@@ -125,7 +125,7 @@ The gallery below is intentionally code-first. Add your rendered images or video
 
 ### 1. Parallel bundle through a converging lens
 
-<!-- Add rendered image here: parallel bundle through a lens -->
+![Lens Bundle Animation](example_gif/example1.gif)
 
 ```python
 from manim import *
@@ -151,7 +151,7 @@ class LensBundle(Scene):
 
 ### 2. Animated focal length with live ray updates
 
-<!-- Add rendered image here: focal length animation -->
+![Focal Length Animation](example_gif/example2.gif)
 
 ```python
 import numpy as np
@@ -180,7 +180,7 @@ class AnimatedFocalLength(Scene):
 
 ### 3. Eye accommodation
 
-<!-- Add rendered image here: eye accommodation -->
+![Eye Accommodation](example_gif/example3.gif)
 
 ```python
 import numpy as np
@@ -214,7 +214,7 @@ class EyeAccommodation(Scene):
 
 ### 4. Principal planes with `CenteredSystem`
 
-<!-- Add rendered image here: centered optical system -->
+![Principal Planes](example_gif/example4.gif)
 
 ```python
 import numpy as np
@@ -248,7 +248,7 @@ class PrincipalPlanes(Scene):
 
 ### 5. Real and virtual image formation
 
-<!-- Add rendered image here: image formation helper -->
+![Real vs Virtual Images](example_gif/example5.gif)
 
 ```python
 import numpy as np
@@ -286,7 +286,7 @@ class RealVsVirtual(Scene):
 
 ### 6. Graticule overlay for optical measurements
 
-<!-- Add rendered image here: graticule overlay -->
+![Measured Focus with Graticule](example_gif/example6.gif)
 
 ```python
 import numpy as np
@@ -328,7 +328,7 @@ class MeasuredFocus(Scene):
 
 ### 7. 3D focusing
 
-<!-- Add rendered image here: 3D focusing scene -->
+![3D Focal Point Convergence](example_gif/example7.gif)
 
 ```python
 import numpy as np
