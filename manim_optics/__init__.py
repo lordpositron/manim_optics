@@ -11,7 +11,6 @@ Features:
 - Paraxial optics calculations
 
 Author: Corentin Nannini
-Date: December 2025
 """
 
 # Base classes

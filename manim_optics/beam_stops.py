@@ -397,13 +397,17 @@ class ArcBeamStop(BeamStop):
         Parameters
         ----------
         radius : float
-            Radius of curvature of the arc
+            Radius of curvature of the arc.
         arc_angle : float
-            Angular extent of the arc (in radians)
-        color : str
-            Color of the arc
+            Angular extent of the arc (in radians).
+        stroke_color : str
+            Stroke color of the arc.
         stroke_width : float
-            Width of the arc line
+            Width of the arc line.
+        fill_color : str, optional
+            Fill color of the arc area (None for no fill).
+        fill_opacity : float
+            Opacity of the fill (0.0–1.0).
         """
         super().__init__(**kwargs)
         self.arc_radius = radius

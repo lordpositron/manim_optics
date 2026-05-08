@@ -1214,16 +1214,19 @@ class RayExtension(VMobject):
         Parameters
         ----------
         ray : DynamicRay
-            The ray to extend
-        extension_length : float
-            How far to extend the ray
-        segment_index : int
-            Which segment of the ray to extend (-1 for last segment)
-        direction : str
-            "forward" to extend in ray direction, "backward" to extend opposite, "auto"
-            to extend the ray after the element to the image position (any direction)
-        color : str
-            Color of the extension (defaults to ray color with reduced opacity)
+            The ray to extend.
+        element_idx : int, optional
+            Index of the optical element after which the extension starts
+            (-1 for the last segment of the ray).
+        ray_bundle : RayBundle, optional
+            Bundle the ray belongs to (used to resolve the image position).
+        image_pos : ValueTracker, optional
+            Tracker holding the image x-position; the extension stretches up to it.
+        color : str, optional
+            Color of the extension. Defaults to the ray color with reduced opacity.
+        overshoot : float, optional
+            Multiplier applied beyond the image position so the dashed extension
+            visibly crosses it (default: 1.1).
         """
         super().__init__(**kwargs)
         self.ray = ray

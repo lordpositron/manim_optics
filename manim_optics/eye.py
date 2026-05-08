@@ -47,24 +47,36 @@ class Eye(VGroup):
         Parameters
         ----------
         focal_length : float
-            Focal length of the eye lens (cornea + crystalline)
+            Focal length of the eye lens (cornea + crystalline).
         lens_diameter : float
-            Diameter (height) of the lens
+            Diameter (height) of the lens.
         pupil_diameter : float
-            Diameter of the pupil aperture
+            Diameter of the pupil aperture.
         include_pupil : bool
-            Whether to include a pupil aperture
-        lens_color : str
-            Color of the lens
-        pupil_color : str
-            Color of the pupil
-        retina_color : str
-            Color of the retina
+            Whether to include a pupil aperture.
+        focal_delta : float
+            Offset added to the focal length when computing the retina radius
+            (used for accommodation modeling).
+        show_focal_point : bool
+            Whether to render the lens focal-point markers.
+        show_cornea : bool
+            Whether to render the cornea (filled arc in front of the pupil).
+        cornea_thickness : float
+            Visual thickness of the cornea (when ``show_cornea`` is True).
+        lens_color : color
+            Color of the lens.
+        pupil_color : color
+            Color of the pupil.
+        retina_color : color
+            Color of the retina.
+        fill_color : color, optional
+            Fill color for the cornea/retina interior. Set to ``None`` for no fill.
 
         Notes
         -----
         The retina radius and angle are calculated automatically from the focal length
-        using geometric relationships defined by lens_entering and aperture_entering parameters.
+        using geometric relationships defined by ``lens_entering`` and
+        ``aperture_entering`` (internal constants).
         """
         super().__init__(**kwargs)
 
