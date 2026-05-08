@@ -41,8 +41,9 @@ autodoc_default_options = {
 autodoc_typehints = "description"
 add_module_names = False
 
-# Mock manim so autodoc works without a full Manim install on RTD
-autodoc_mock_imports = ["manim", "numpy", "cairo"]
+# Mock manim (and cairo which it pulls in) — not installed on RTD to avoid
+# system-library deps (pangocairo). numpy is installed directly via requirements.txt.
+autodoc_mock_imports = ["manim", "cairo"]
 
 # -- Napoleon (NumPy/Google docstrings) ---------------------------------------
 napoleon_numpy_docstring = True
