@@ -4,13 +4,12 @@ Test de détection des images virtuelles vs réelles pour différentes configura
 
 import numpy as np
 from manim import *
+
 from manim_optics import (
-    DynamicRay,
-    RayBundle,
-    create_parallel_bundle,
+    ImageFormation,
     SphericalMirror,
     ThinLens,
-    ImageFormation,
+    create_parallel_bundle,
 )
 
 
@@ -43,7 +42,7 @@ class TestVirtualDetection(Scene):
 
         img_pos1 = image1.get_image_position()
         print(f"Miroir concave: image at {img_pos1}")
-        print(f"  Should be REAL (x < 3) → NO extensions")
+        print("  Should be REAL (x < 3) → NO extensions")
 
         # Test 2: Miroir CONVEXE (R < 0) avec rayons parallèles
         # Image VIRTUELLE derrière le miroir → AVEC extension
@@ -72,7 +71,7 @@ class TestVirtualDetection(Scene):
 
         img_pos2 = image2.get_image_position()
         print(f"Miroir convexe: image at {img_pos2}")
-        print(f"  Should be VIRTUAL (x > 3) → WITH extensions")
+        print("  Should be VIRTUAL (x > 3) → WITH extensions")
 
         # Test 3: Lentille CONVERGENTE (f > 0) avec objet loin
         # Image RÉELLE après la lentille → PAS d'extension
@@ -100,7 +99,7 @@ class TestVirtualDetection(Scene):
 
         img_pos3 = image3.get_image_position()
         print(f"Lentille convergente: image at {img_pos3}")
-        print(f"  Should be REAL (x > 3) → NO extensions")
+        print("  Should be REAL (x > 3) → NO extensions")
 
         # Test 4: Lentille DIVERGENTE (f < 0) avec rayons parallèles
         # Image VIRTUELLE avant la lentille → AVEC extension
@@ -128,7 +127,7 @@ class TestVirtualDetection(Scene):
 
         img_pos4 = image4.get_image_position()
         print(f"Lentille divergente: image at {img_pos4}")
-        print(f"  Should be VIRTUAL (x < -3) → WITH extensions")
+        print("  Should be VIRTUAL (x < -3) → WITH extensions")
 
         # Add all to scene
         self.add(mirror_concave, rays1, image1)

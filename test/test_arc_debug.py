@@ -4,6 +4,7 @@ Debug scene for ArcBeamStop intersection testing
 
 import numpy as np
 from manim import *
+
 from manim_optics import *
 
 

@@ -1,10 +1,65 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "manim-optics"
 version = "0.0.1"
+description = "An optics simulation library built on top of Manim"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Corentin Nannini", email = "votre.email@exemple.com" }
+]
+keywords = ["manim", "optics", "physics", "animation", "education"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Multimedia :: Graphics :: Animation",
+]
+dependencies = [
+    "manim>=0.20.0",
+]
+
+# Development dependencies (installable via pip install -e ".[dev]")
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.4.0",
+]
+
+# URLs for PyPI and GitHub
+[project.urls]
+Homepage = "https://github.com/votre-username/manim-optics"
+Repository = "https://github.com/votre-username/manim-optics.git"
+"Bug Tracker" = "https://github.com/votre-username/manim-optics/issues"
 
 [tool.setuptools]
 packages = ["manim_optics"]
+
+# Ruff Configuration
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "N", "B"] # Added N (pep8-naming) and B (flake8-bugbear)
+ignore = ["E501"] # Let the formatter handle line length
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"] # Ignore unused imports in __init__ files
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v"

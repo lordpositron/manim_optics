@@ -1,5 +1,6 @@
 from manim import *
-from manim_optics import ThinLens3D, RayBundle3D
+
+from manim_optics import RayBundle3D, ThinLens3D
 
 
 class TestDynamic3D(ThreeDScene):
@@ -286,6 +287,6 @@ class TestDynamic3DComplex(ThreeDScene):
                 lens.animate.move_to(np.array([i * 2 - 2, 0, 0]))
                 for i, lens in enumerate(lenses)
             ],
-            run_time=2
+            run_time=2,
         )
         self.wait(2)

@@ -1,5 +1,5 @@
-import numpy as np
 from manim import *
+
 from manim_optics import ConvergingLens, DivergingLens
 
 
@@ -32,7 +32,7 @@ class TestLensTips(Scene):
         self.add(grid)
 
         # Debug: print lens1 components
-        print(f"\n=== LENS1 (Converging) ===")
+        print("\n=== LENS1 (Converging) ===")
         print(f"Number of submobjects: {len(lens1.submobjects)}")
         for i, submob in enumerate(lens1.submobjects):
             print(f"  [{i}] {type(submob).__name__}")

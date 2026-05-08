@@ -23,18 +23,19 @@ To render and convert to GIF:
 
 import numpy as np
 from manim import *
+
 from manim_optics import (
-    ConvergingLens,
-    RayBundle,
-    create_parallel_bundle,
-    Eye,
     CenteredSystem,
+    ConvergingLens,
     DynamicRay,
-    SphericalMirror,
+    Eye,
     ImageFormation,
     LinearGraticule,
-    ThinLens3D,
+    RayBundle,
     RayBundle3D,
+    SphericalMirror,
+    ThinLens3D,
+    create_parallel_bundle,
 )
 
 

@@ -1,11 +1,10 @@
 import numpy as np
 from manim import *
+
 from manim_optics import (
-    DynamicRay,
-    RayBundle,
-    create_parallel_bundle,
-    SphericalMirror,
     ImageFormation,
+    SphericalMirror,
+    create_parallel_bundle,
 )
 
 

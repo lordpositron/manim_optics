@@ -1,5 +1,6 @@
 from manim import *
-from manim_optics import ThinLens3D, RayBundle3D
+
+from manim_optics import RayBundle3D, ThinLens3D
 
 
 class TestTrackers3D(ThreeDScene):
@@ -50,14 +51,16 @@ class TestTrackers3D(ThreeDScene):
 
         # Textes pour afficher les valeurs
         focal_text = always_redraw(
-            lambda: Text(
-                f"f = {lens.focal_length_tracker.get_value():.2f}",
-                font_size=28,
-                color=BLUE,
+            lambda: (
+                Text(
+                    f"f = {lens.focal_length_tracker.get_value():.2f}",
+                    font_size=28,
+                    color=BLUE,
+                )
+                .to_corner(UL)
+                .rotate(90 * DEGREES, axis=OUT)
+                .rotate(90 * DEGREES, axis=RIGHT)
             )
-            .to_corner(UL)
-            .rotate(90 * DEGREES, axis=OUT)
-            .rotate(90 * DEGREES, axis=RIGHT)
         )
 
         aperture_text = always_redraw(

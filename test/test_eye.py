@@ -4,12 +4,13 @@ Test Eye Model - Demonstration of the eye optical system
 
 import numpy as np
 from manim import *
+
 from manim_optics import (
-    Eye,
-    RayBundle,
-    LineBeamStop,
-    CircularAperture,
     ArcBeamStop,
+    CircularAperture,
+    Eye,
+    LineBeamStop,
+    RayBundle,
 )
 
 
@@ -190,7 +191,7 @@ class TestBeamStops(Scene):
 
             # Label
             label = Text(
-                f"r={radius}\nθ={int(angle*180/np.pi)}°", font_size=16
+                f"r={radius}\nθ={int(angle * 180 / np.pi)}°", font_size=16
             ).next_to(arc_stop, DOWN, buff=0.3)
 
             self.add(arc_stop, rays, label)

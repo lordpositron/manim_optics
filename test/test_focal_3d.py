@@ -1,5 +1,6 @@
 from manim import *
-from manim_optics import ThinLens3D, RayBundle3D
+
+from manim_optics import RayBundle3D, ThinLens3D
 
 
 class TestFocal3DSimple(ThreeDScene):

@@ -8,6 +8,7 @@ using principal planes (H, H') and nodal points (N, N').
 
 import numpy as np
 from manim import *
+
 from .base import OpticalElement
 
 

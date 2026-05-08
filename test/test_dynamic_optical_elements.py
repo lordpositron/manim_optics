@@ -3,6 +3,7 @@ Test scene to demonstrate dynamic optical element updates
 """
 
 from manim import *
+
 from manim_optics import *
 
 

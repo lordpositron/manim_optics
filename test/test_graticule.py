@@ -3,6 +3,7 @@ Test scenes for Graticule classes
 """
 
 from manim import *
+
 from manim_optics import *
 
 

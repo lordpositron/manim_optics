@@ -4,7 +4,8 @@ Debug test for 3D focal length verification
 
 import numpy as np
 from manim import *
-from manim_optics import ThinLens3D, RayBundle3D
+
+from manim_optics import RayBundle3D, ThinLens3D
 
 
 class TestFocalDebug(ThreeDScene):
@@ -117,9 +118,9 @@ class TestFocalDebug(ThreeDScene):
         p1_at_t = intersection1 + t_intersection * dir1_after_norm
         p2_at_t = intersection2 + t_intersection * dir2_after_norm
 
-        print(f"\n{'='*50}")
-        print(f"VÉRIFICATION MATHÉMATIQUE DE LA FOCALISATION")
-        print(f"{'='*50}")
+        print(f"\n{'=' * 50}")
+        print("VÉRIFICATION MATHÉMATIQUE DE LA FOCALISATION")
+        print(f"{'=' * 50}")
         print(f"Distance focale de la lentille : f = {f}")
         print(f"Hauteur rayon 1 : h1 = {h1}")
         print(f"Hauteur rayon 2 : h2 = {h2}")
@@ -130,7 +131,7 @@ class TestFocalDebug(ThreeDScene):
         print(f"\nRayon 1 à t={t_intersection} : {p1_at_t}")
         print(f"Rayon 2 à t={t_intersection} : {p2_at_t}")
         print(f"Distance entre les deux : {np.linalg.norm(p1_at_t - p2_at_t):.6f}")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
 
         # Marqueur au point focal théorique
         focal_marker = Sphere(radius=0.1, color=RED)

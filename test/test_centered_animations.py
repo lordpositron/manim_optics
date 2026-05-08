@@ -10,6 +10,7 @@ Test 3 types of animations:
 
 import numpy as np
 from manim import *
+
 from manim_optics import CenteredSystem, DynamicRay
 
 

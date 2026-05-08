@@ -4,6 +4,7 @@ Test ray bundle animation methods
 
 import numpy as np
 from manim import *
+
 from manim_optics import ConvergingLens, RayBundle
 
 

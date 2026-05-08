@@ -8,9 +8,11 @@ optical elements move or change.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
 import numpy as np
 from manim import *
-from typing import List, Optional, Union, Callable, Tuple, TYPE_CHECKING
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
@@ -33,9 +35,9 @@ class DynamicRay(VMobject):
 
     def __init__(
         self,
-        start_point: Union[NDArray[np.floating], Mobject],
-        direction: Union[NDArray[np.floating], Callable[[], NDArray[np.floating]]],
-        optical_elements: Optional[List[OpticalElement]] = None,
+        start_point: NDArray[np.floating] | Mobject,
+        direction: NDArray[np.floating] | Callable[[], NDArray[np.floating]],
+        optical_elements: list[OpticalElement] | None = None,
         max_segments: int = 10,
         ray_length: float = 100.0,
         color: str = YELLOW,
@@ -86,7 +88,7 @@ class DynamicRay(VMobject):
         # Add updater for automatic recalculation
         self.add_updater(self._update_ray_path)
 
-    def _update_ray_path(self, mobject: Optional[Mobject], dt: float = 0) -> None:
+    def _update_ray_path(self, mobject: Mobject | None, dt: float = 0) -> None:
         """
         Updater function that recalculates the ray path.
 
@@ -331,7 +333,7 @@ class DynamicRay(VMobject):
                 [fallback_start, fallback_start + fallback_dir * self.ray_length]
             )
 
-    def set_optical_elements(self, optical_elements: List[OpticalElement]) -> None:
+    def set_optical_elements(self, optical_elements: list[OpticalElement]) -> None:
         """Update the list of optical elements and recalculate the ray path.
 
         Parameters
@@ -435,23 +437,13 @@ class RayBundle(VGroup):
 
     def __init__(
         self,
-        start_points: Optional[
-            Union[
-                NDArray[np.floating],
-                Mobject,
-                List[Union[NDArray[np.floating], Mobject]],
-            ]
-        ] = None,
-        directions: Optional[
-            Union[NDArray[np.floating], List[NDArray[np.floating]]]
-        ] = None,
-        direction_vector: Optional[
-            Union[NDArray[np.floating], List[NDArray[np.floating]]]
-        ] = None,
-        direction_angle_rad: Optional[Union[float, List[float]]] = None,
-        direction_angle_deg: Optional[Union[float, List[float]]] = None,
-        num_rays: Optional[int] = None,
-        optical_elements: Optional[List[OpticalElement]] = None,
+        start_points: NDArray[np.floating] | Mobject | list[NDArray[np.floating] | Mobject] | None = None,
+        directions: NDArray[np.floating] | list[NDArray[np.floating]] | None = None,
+        direction_vector: NDArray[np.floating] | list[NDArray[np.floating]] | None = None,
+        direction_angle_rad: float | list[float] | None = None,
+        direction_angle_deg: float | list[float] | None = None,
+        num_rays: int | None = None,
+        optical_elements: list[OpticalElement] | None = None,
         **ray_kwargs,
     ):
         """
@@ -651,9 +643,9 @@ class RayBundle(VGroup):
 
     def _angles_to_vectors(
         self,
-        angles: Union[float, List[float], Tuple[float, ...], NDArray[np.floating]],
+        angles: float | list[float] | tuple[float, ...] | NDArray[np.floating],
         degrees: bool = False,
-    ) -> Union[NDArray[np.floating], List[NDArray[np.floating]]]:
+    ) -> NDArray[np.floating] | list[NDArray[np.floating]]:
         """Convert angle(s) to direction vector(s)."""
         # Check if it's an iterable (list, tuple, or numpy array)
         if isinstance(angles, (list, tuple, np.ndarray)):
@@ -667,7 +659,7 @@ class RayBundle(VGroup):
             rad = np.deg2rad(angles) if degrees else angles
             return np.array([np.cos(rad), np.sin(rad), 0])
 
-    def set_optical_elements(self, optical_elements: List[OpticalElement]) -> None:
+    def set_optical_elements(self, optical_elements: list[OpticalElement]) -> None:
         """Update the list of optical elements for all rays in the bundle.
 
         Parameters
@@ -692,7 +684,7 @@ class RayBundle(VGroup):
         for ray in self.rays:
             ray.add_optical_element(element)
 
-    def add_optical_elements(self, elements: List[OpticalElement]) -> None:
+    def add_optical_elements(self, elements: list[OpticalElement]) -> None:
         """Add multiple optical elements to all rays in the bundle.
 
         Parameters
@@ -716,7 +708,7 @@ class RayBundle(VGroup):
         for ray in self.rays:
             ray.remove_optical_element(element)
 
-    def remove_optical_elements(self, elements: List[OpticalElement]) -> None:
+    def remove_optical_elements(self, elements: list[OpticalElement]) -> None:
         """Remove multiple optical elements from all rays in the bundle.
 
         Parameters
@@ -737,7 +729,7 @@ class RayBundle(VGroup):
         for ray in self.rays:
             ray.resume_updating(recursive=recursive)
 
-    def set_opacity(self, opacity: float, family: bool = True) -> "RayBundle":
+    def set_opacity(self, opacity: float, family: bool = True) -> RayBundle:
         """
         Set the opacity of all rays in the bundle.
 
@@ -758,7 +750,7 @@ class RayBundle(VGroup):
             ray.opacity = opacity
         return self
 
-    def set_stroke(self, color=None, width=None, opacity=None, **kwargs) -> "RayBundle":
+    def set_stroke(self, color=None, width=None, opacity=None, **kwargs) -> RayBundle:
         """
         Set stroke properties for all rays in the bundle.
 
@@ -954,7 +946,7 @@ class RayBundle(VGroup):
 
     def get_image_formation(
         self, optical_element_index: int = 0, **kwargs
-    ) -> "ImageFormation":
+    ) -> ImageFormation:
         """
         Create an ImageFormation object to analyze and visualize image formation.
 
@@ -987,7 +979,7 @@ class RayBundle(VGroup):
 
     def get_optical_elements_positions(
         self, index=None
-    ) -> Union[List[np.ndarray], np.ndarray]:
+    ) -> list[np.ndarray] | np.ndarray:
         """
         Get the positions of the optical elements in the ray bundle.
 
@@ -1031,8 +1023,8 @@ class PrincipalRays(VGroup):
 
     def __init__(
         self,
-        object_point: Union[NDArray[np.floating], Mobject],
-        lens: "ThinLens",
+        object_point: NDArray[np.floating] | Mobject,
+        lens: ThinLens,
         **kwargs,
     ):
         """
@@ -1116,7 +1108,7 @@ def create_parallel_bundle(
     spacing: float = 0.5,
     start_x: float = -5.0,
     direction: NDArray[np.floating] = RIGHT,
-    optical_elements: Optional[List[OpticalElement]] = None,
+    optical_elements: list[OpticalElement] | None = None,
     **ray_kwargs,
 ) -> RayBundle:
     """
@@ -1156,10 +1148,10 @@ def create_parallel_bundle(
 
 
 def create_diverging_bundle(
-    source_point: Union[NDArray[np.floating], Mobject],
-    angle_range_deg: Tuple[float, float] = (-30, 30),
+    source_point: NDArray[np.floating] | Mobject,
+    angle_range_deg: tuple[float, float] = (-30, 30),
     num_rays: int = 5,
-    optical_elements: Optional[List[OpticalElement]] = None,
+    optical_elements: list[OpticalElement] | None = None,
     **ray_kwargs,
 ) -> RayBundle:
     """
@@ -1207,7 +1199,7 @@ class RayExtension(VMobject):
         element_idx: NDArray[np.floating] = None,
         ray_bundle: RayBundle = None,
         image_pos: ValueTracker = None,
-        color: Optional[str] = None,
+        color: str | None = None,
         overshoot: float = 1.1,
         **kwargs,
     ):
@@ -1252,7 +1244,7 @@ class RayExtension(VMobject):
     def _is_virtual_image(
         self,
         element_pos: np.ndarray,
-        next_element_pos: Optional[np.ndarray],
+        next_element_pos: np.ndarray | None,
         image_pos: float,
         is_mirror: bool,
     ) -> bool:
@@ -1311,7 +1303,7 @@ class RayExtension(VMobject):
             # - Image virtuelle si AVANT la lentille
             return image_pos < element_pos[0]
 
-    def _update_extension(self, mobject: Optional[Mobject], dt: float = 0) -> None:
+    def _update_extension(self, mobject: Mobject | None, dt: float = 0) -> None:
         """Update the extension line based on ray position."""
 
         element_pos = self.ray_bundle.get_optical_elements_positions(
@@ -1460,7 +1452,7 @@ def find_ray_intersection(
     segment1: int = -1,
     segment2: int = -1,
     max_distance: float = 100.0,
-) -> Optional[NDArray[np.floating]]:
+) -> NDArray[np.floating] | None:
     """
     Find the intersection point of two rays.
 
@@ -1605,7 +1597,7 @@ class ImageMarker(VGroup):
         # Add updater
         self.add_updater(self._update_position)
 
-    def _update_position(self, mobject: Optional[Mobject], dt: float = 0) -> None:
+    def _update_position(self, mobject: Mobject | None, dt: float = 0) -> None:
         """Update marker position based on ray intersection."""
         intersection = find_ray_intersection(
             self.ray1, self.ray2, self.segment1, self.segment2
@@ -1639,7 +1631,7 @@ class ImageMarker(VGroup):
 
 def find_focal_point_from_rays(
     ray_bundle: RayBundle, element_index: int = -1
-) -> Optional[NDArray[np.floating]]:
+) -> NDArray[np.floating] | None:
     """
     Find the focal point from multiple rays using least squares optimization.
 
@@ -1659,7 +1651,7 @@ def find_focal_point_from_rays(
         Focal point position, or None if calculation fails
     """
 
-    rays: List[DynamicRay] = ray_bundle.rays
+    rays: list[DynamicRay] = ray_bundle.rays
 
     # optical_element_position = (
     #     ray_bundle.optical_elements[element_index].get_center()
@@ -1768,7 +1760,7 @@ class ImageFormation(VGroup):
         optical_axis_y: float = 0.0,
         focal_point_color: str = BLUE,
         image_arrow_color: str = BLUE,
-        extension_color: Optional[str] = None,
+        extension_color: str | None = None,
         **kwargs,
     ):
         """
@@ -1847,7 +1839,7 @@ class ImageFormation(VGroup):
         # Add updater
         self.add_updater(self._update_image_position)
 
-    def _update_image_position(self, mobject: Optional[Mobject], dt: float = 0) -> None:
+    def _update_image_position(self, mobject: Mobject | None, dt: float = 0) -> None:
         """Update focal point and visualization based on current ray positions."""
         # Calculate focal point
         focal_point = find_focal_point_from_rays(
@@ -1879,7 +1871,7 @@ class ImageFormation(VGroup):
             if self._show_image_arrow:
                 self.image_arrow.set_opacity(0)
 
-    def get_image_position(self) -> Optional[NDArray[np.floating]]:
+    def get_image_position(self) -> NDArray[np.floating] | None:
         """Get the current calculated image position."""
         return find_focal_point_from_rays(
             self.ray_bundle, element_index=self.optical_element_index

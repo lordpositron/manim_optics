@@ -5,9 +5,9 @@ Optical Scene Utilities
 Helper functions and classes for creating optical scenes.
 """
 
+
 import numpy as np
 from manim import *
-from typing import List
 
 
 class OpticalScene(Scene):
@@ -147,7 +147,7 @@ class OpticalScene(Scene):
             Size of the label text
         """
         f_text = MathTex(
-            f"f'= {lens.focal_length*10:.1f}\\text{{mm}}", font_size=font_size
+            f"f'= {lens.focal_length * 10:.1f}\\text{{mm}}", font_size=font_size
         )
         f_text.next_to(lens, DOWN, buff=0.5)
         if animate:

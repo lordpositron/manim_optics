@@ -6,6 +6,7 @@ This module provides the base OpticalElement class and utility functions.
 """
 
 from abc import ABC, abstractmethod
+
 import numpy as np
 from manim import *
 
@@ -50,7 +51,7 @@ class OpticalElement(VGroup, ABC):
         self,
         refractive_index_before: float = 1.0,
         refractive_index_after: float = 1.0,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self._optical_axis = RIGHT  # Default optical axis direction

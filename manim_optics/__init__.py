@@ -17,52 +17,52 @@ Date: December 2025
 # Base classes
 from .base import OpticalElement, rotate_vector_2d
 
-# Lenses
-from .lenses import ThinLens, ConvergingLens, DivergingLens
-
-# Mirrors
-from .mirrors import Mirror, PlaneMirror, SphericalMirror
-
 # Beam Stops
-from .beam_stops import BeamStop, LineBeamStop, CircularAperture, ArcBeamStop
-
-# Eye
-from .eye import Eye
+from .beam_stops import ArcBeamStop, BeamStop, CircularAperture, LineBeamStop
 
 # Centered System
 from .centered_system import CenteredSystem
 
+# Eye
+from .eye import Eye
+
+# Lenses
+from .lenses import ConvergingLens, DivergingLens, ThinLens
+
+# Mirrors
+from .mirrors import Mirror, PlaneMirror, SphericalMirror
+
+# Miscellaneous utilities
+from .miscellaneous import (
+    CrossGraticule,
+    Graticule,
+    GridGraticule,
+    LinearGraticule,
+)
+
 # 3D Optics
-from .optics_3d import OpticalElement3D, ThinLens3D, RayBundle3D
+from .optics_3d import OpticalElement3D, RayBundle3D, ThinLens3D
 
 # Rays
 from .rays import (
     DynamicRay,
-    RayBundle,
-    PrincipalRays,
-    create_parallel_bundle,
-    create_diverging_bundle,
-    RayExtension,
-    find_ray_intersection,
-    ImageMarker,
     ImageFormation,
+    ImageMarker,
+    PrincipalRays,
+    RayBundle,
+    RayExtension,
+    create_diverging_bundle,
+    create_parallel_bundle,
     find_focal_point_from_rays,
+    find_ray_intersection,
 )
 
 # Scene utilities
 from .scene_utils import (
     OpticalScene,
-    create_object_arrow,
-    create_image_arrow,
     calculate_image_position,
-)
-
-# Miscellaneous utilities
-from .miscellaneous import (
-    Graticule,
-    LinearGraticule,
-    CrossGraticule,
-    GridGraticule,
+    create_image_arrow,
+    create_object_arrow,
 )
 
 __version__ = "0.1.0"

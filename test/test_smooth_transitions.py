@@ -3,6 +3,7 @@ Test scene comparing abrupt vs smooth optical element transitions
 """
 
 from manim import *
+
 from manim_optics import *
 
 

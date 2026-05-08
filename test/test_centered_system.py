@@ -4,6 +4,7 @@ Test for CenteredSystem - Principal planes optical system
 """
 
 from manim import *
+
 from manim_optics import CenteredSystem, DynamicRay
 
 

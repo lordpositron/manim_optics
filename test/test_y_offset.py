@@ -3,6 +3,7 @@ Test scene for y_offset_tracker functionality
 """
 
 from manim import *
+
 from manim_optics import *
 
 

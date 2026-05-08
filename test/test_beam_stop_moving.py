@@ -1,5 +1,6 @@
-from manim import *
 import sys
+
+from manim import *
 
 sys.path.insert(0, "/Users/corentinnannini/Documents/manim_test")
 

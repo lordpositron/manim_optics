@@ -5,9 +5,10 @@ Miscellaneous - Utility classes for optical simulations
 This module provides utility classes like graticules for measurements and references.
 """
 
+from typing import Literal
+
 import numpy as np
 from manim import *
-from typing import Optional, Literal
 
 
 class Graticule(VGroup):
@@ -397,8 +398,8 @@ class CrossGraticule(Graticule):
 
     def __init__(
         self,
-        x_length: Optional[float] = None,
-        y_length: Optional[float] = None,
+        x_length: float | None = None,
+        y_length: float | None = None,
         **kwargs,
     ):
         """
@@ -490,8 +491,8 @@ class GridGraticule(Graticule):
 
     def __init__(
         self,
-        width: Optional[float] = None,
-        height: Optional[float] = None,
+        width: float | None = None,
+        height: float | None = None,
         grid_stroke_width: float = 0.5,
         show_grid_labels: bool = False,
         **kwargs,

@@ -2,9 +2,10 @@
 Test custom boundary positions and heights for CenteredSystem
 """
 
-from manim import *
-from manim_optics import CenteredSystem, DynamicRay
 import numpy as np
+from manim import *
+
+from manim_optics import CenteredSystem, DynamicRay
 
 
 class TestCustomBoundaries(Scene):

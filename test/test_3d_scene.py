@@ -1,5 +1,6 @@
 from manim import *
-from manim_optics import ThinLens3D, RayBundle3D
+
+from manim_optics import RayBundle3D, ThinLens3D
 
 eiffel_path = r"/Users/corentinnannini/sDrive/BIO IO/Script vidéos à venir/eiffel.svg"
 

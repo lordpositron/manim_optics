@@ -3,6 +3,7 @@ Test scene to demonstrate show_main_line parameter
 """
 
 from manim import *
+
 from manim_optics import *
 
 

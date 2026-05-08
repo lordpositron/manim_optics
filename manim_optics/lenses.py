@@ -7,6 +7,7 @@ This module provides lens classes for optical simulations.
 
 import numpy as np
 from manim import *
+
 from .base import OpticalElement
 
 
@@ -34,7 +35,7 @@ class ThinLens(OpticalElement):
         tip_length: float = 0.3,
         stroke_width: float = 3,
         show_focal_points: bool = True,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize a thin lens.
@@ -53,7 +54,7 @@ class ThinLens(OpticalElement):
         super().__init__(
             refractive_index_before=refractive_index_before,
             refractive_index_after=refractive_index_after,
-            **kwargs
+            **kwargs,
         )
         self.focal_length = focal_length
         self.focal_length_tracker = ValueTracker(focal_length)

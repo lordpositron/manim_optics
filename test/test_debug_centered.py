@@ -2,9 +2,10 @@
 Simple debug test for CenteredSystem ray hiding
 """
 
-from manim import *
-from manim_optics import CenteredSystem, DynamicRay
 import numpy as np
+from manim import *
+
+from manim_optics import CenteredSystem, DynamicRay
 
 
 class DebugTwoRays(Scene):

@@ -7,8 +7,9 @@ This module provides the Eye class for optical simulations.
 
 import numpy as np
 from manim import *
+
+from .beam_stops import ArcBeamStop, CircularAperture
 from .lenses import ConvergingLens
-from .beam_stops import CircularAperture, ArcBeamStop
 
 
 class Eye(VGroup):
@@ -38,7 +39,7 @@ class Eye(VGroup):
         pupil_color=BLUE_C,
         retina_color=WHITE,
         fill_color=BLUE_D,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize an eye model.

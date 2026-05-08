@@ -150,7 +150,7 @@ class ThinLens3D(OpticalElement3D):
         color=BLUE_E,
         opacity=0.6,
         show_focal_points=False,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(position=position, normal_vector=normal_vector, **kwargs)
 
@@ -648,7 +648,7 @@ class RayBundle3D(VGroup):
         color=YELLOW,
         stroke_width=2,
         auto_update=True,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
 

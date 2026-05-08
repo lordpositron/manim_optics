@@ -4,6 +4,7 @@ Test simple pour débugger la rémanence
 
 import numpy as np
 from manim import *
+
 from manim_optics import CenteredSystem, DynamicRay
 
 

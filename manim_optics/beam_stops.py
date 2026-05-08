@@ -7,7 +7,8 @@ This module provides beam stop implementations for optical simulations.
 
 import numpy as np
 from manim import *
-from .base import OpticalElement, rotate_vector_2d
+
+from .base import OpticalElement
 
 
 class BeamStop(OpticalElement):
@@ -169,7 +170,7 @@ class CircularAperture(BeamStop):
         total_length: float = None,
         line_color=GREY_D,
         line_stroke_width: float = 4,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize a circular aperture.
@@ -388,7 +389,7 @@ class ArcBeamStop(BeamStop):
         stroke_width: float = 4,
         fill_color=None,
         fill_opacity: float = 0.0,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize an arc beam stop.

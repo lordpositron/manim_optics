@@ -5,9 +5,11 @@ Mirrors - Mirror implementations
 This module provides mirror classes for optical simulations.
 """
 
+from abc import abstractmethod
+
 import numpy as np
 from manim import *
-from abc import abstractmethod
+
 from .base import OpticalElement
 
 
