@@ -36,7 +36,7 @@ concepts
 :maxdepth: 2
 :caption: API Reference
 
-api/index
+autoapi/manim_optics/index
 ```
 
 ```{toctree}

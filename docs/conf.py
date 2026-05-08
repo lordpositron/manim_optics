@@ -14,7 +14,7 @@ version = "0.1.0"
 
 # -- General configuration ----------------------------------------------------
 extensions = [
-    "sphinx.ext.autodoc",
+    "autoapi.extension",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
@@ -31,19 +31,21 @@ source_suffix = {
     ".md": "markdown",
 }
 
-# -- Autodoc ------------------------------------------------------------------
-autodoc_default_options = {
-    "members": True,
-    "undoc-members": False,
-    "show-inheritance": True,
-    "member-order": "bysource",
-}
-autodoc_typehints = "description"
-add_module_names = False
-
-# Mock manim (and cairo which it pulls in) — not installed on RTD to avoid
-# system-library deps (pangocairo). numpy is installed directly via requirements.txt.
-autodoc_mock_imports = ["manim", "cairo"]
+# -- AutoAPI ------------------------------------------------------------------
+# Analyses source code statically (AST) — no import needed, manim not required.
+autoapi_dirs = ["../manim_optics"]
+autoapi_type = "python"
+autoapi_options = [
+    "members",
+    "undoc-members",
+    "show-inheritance",
+    "show-module-summary",
+    "special-members",
+    "imported-members",
+]
+autoapi_member_order = "bysource"
+autoapi_add_toctree_entry = True
+autoapi_keep_files = True
 
 # -- Napoleon (NumPy/Google docstrings) ---------------------------------------
 napoleon_numpy_docstring = True
