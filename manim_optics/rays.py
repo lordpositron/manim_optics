@@ -527,6 +527,12 @@ class RayBundle(VGroup):
         """
         super().__init__()
 
+        # Ensure VMobject color arrays exist so FadeOut/Transform work on the bundle.
+        # VGroup.__init__ doesn't call init_colors, so these attributes may be missing.
+        for _attr in ("stroke_rgbas", "fill_rgbas", "background_stroke_rgbas"):
+            if not hasattr(self, _attr):
+                setattr(self, _attr, np.zeros((1, 4)))
+
         # Extract opacity from ray_kwargs if present (to apply after ray creation)
         bundle_opacity = ray_kwargs.pop("opacity", None)
 
@@ -803,7 +809,10 @@ class RayBundle(VGroup):
         RayBundle
             Self (for chaining)
         """
-        # Check if rays exist (they won't exist during __init__)
+        # Keep stroke_rgbas in sync on the VGroup itself so Manim's
+        # align_rgbas / FadeOut / Transform can access the attribute.
+        super().set_stroke(color=color, width=width, opacity=opacity, **kwargs)
+
         if not hasattr(self, "rays"):
             return self
 
