@@ -37,12 +37,18 @@ dev = [
     "pytest>=8.0.0",
     "ruff>=0.4.0",
 ]
+docs = [
+    "sphinx>=7.0",
+    "furo>=2024.1.29",
+    "myst-parser>=2.0",
+]
 
 # Project URLs
 [project.urls]
 Homepage = "https://github.com/lordpositron/manim_optics"
 Repository = "https://github.com/lordpositron/manim_optics.git"
 "Bug Tracker" = "https://github.com/lordpositron/manim_optics/issues"
+Documentation = "https://manim-optics.readthedocs.io"
 
 [tool.setuptools]
 packages = ["manim_optics"]
