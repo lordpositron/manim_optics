@@ -95,22 +95,22 @@ class TestPlaneMirror:
 
 class TestSphericalMirror:
     def test_is_mirror(self):
-        mirror = SphericalMirror(radius_of_curvature=4.0)
+        mirror = SphericalMirror(radius_of_curvature=-4.0)
         assert mirror.is_mirror() is True
 
     def test_default_construction(self):
         mirror = SphericalMirror()
-        assert mirror.radius_of_curvature == pytest.approx(4.0)
+        assert mirror.radius_of_curvature == pytest.approx(-4.0)
 
     def test_transfer_matrix_concave(self):
-        """Concave (R > 0): M = [[1, 0], [-2/R, 1]]."""
-        mirror = SphericalMirror(radius_of_curvature=4.0)
+        """Concave (R < 0): M = [[1, 0], [2/R, 1]], C < 0 (converging)."""
+        mirror = SphericalMirror(radius_of_curvature=-4.0)
         M = mirror.get_transfer_matrix()
         np.testing.assert_allclose(M, np.array([[1.0, 0.0], [-0.5, 1.0]]), atol=1e-10)
 
     def test_transfer_matrix_convex(self):
-        """Convex (R < 0): C = -2/R > 0."""
-        mirror = SphericalMirror(radius_of_curvature=-4.0)
+        """Convex (R > 0): C = 2/R > 0 (diverging)."""
+        mirror = SphericalMirror(radius_of_curvature=4.0)
         M = mirror.get_transfer_matrix()
         assert M[1, 0] > 0
 
@@ -121,19 +121,19 @@ class TestSphericalMirror:
         assert np.linalg.det(M) == pytest.approx(1.0, abs=1e-10)
 
     def test_get_normal_left_side(self):
-        mirror = SphericalMirror(radius_of_curvature=4.0, side="left")
+        mirror = SphericalMirror(radius_of_curvature=-4.0, facing="left")
         np.testing.assert_allclose(
             mirror.get_normal_at(np.array([0.0, 0.0, 0.0])), LEFT
         )
 
     def test_get_normal_right_side(self):
-        mirror = SphericalMirror(radius_of_curvature=4.0, side="right")
+        mirror = SphericalMirror(radius_of_curvature=-4.0, facing="right")
         np.testing.assert_allclose(
             mirror.get_normal_at(np.array([0.0, 0.0, 0.0])), RIGHT
         )
 
     def test_intersect_horizontal_ray(self):
-        mirror = SphericalMirror(radius_of_curvature=4.0, height=3.0)
+        mirror = SphericalMirror(radius_of_curvature=-4.0, height=3.0)
         ray_start = np.array([-2.0, 0.5, 0.0])
         ray_dir = np.array([1.0, 0.0, 0.0])
         point, hit = mirror.intersect(ray_start, ray_dir)

@@ -8,7 +8,7 @@ This module provides mirror classes for optical simulations.
 from abc import abstractmethod
 
 import numpy as np
-from manim import DEGREES, Dot, GREY_A, GREY_C, Line, UP, DOWN, LEFT, RIGHT
+from manim import DEGREES, Dot, GREY_A, GREY_C, Line, ValueTracker, UP, DOWN, LEFT, RIGHT
 
 from .base import OpticalElement
 
@@ -95,6 +95,7 @@ class PlaneMirror(Mirror):
         coating_stroke_width: float | None = None,
         mirror_color=GREY_A,
         coating_color=GREY_C,
+        tilt_deg: float = 0.0,
         **kwargs,
     ):
         """
@@ -123,6 +124,8 @@ class PlaneMirror(Mirror):
             Color of the mirror line
         coating_color : color
             Color of the coating indicators
+        tilt_deg : float
+            Initial tilt angle in degrees (0 = vertical mirror)
         """
         super().__init__(refractive_index=refractive_index, **kwargs)
         self.mirror_height = height
@@ -139,6 +142,20 @@ class PlaneMirror(Mirror):
 
         # Create visual representation
         self._create_mirror_visual()
+
+        # Tilt tracker — rotate the whole VGroup incrementally each frame
+        self.tilt_tracker = ValueTracker(tilt_deg)
+        self._prev_tilt = tilt_deg
+        if tilt_deg != 0.0:
+            self.rotate(np.deg2rad(tilt_deg))
+        self.add_updater(self._update_tilt)
+
+    def _update_tilt(self, _mob):
+        current = self.tilt_tracker.get_value()
+        delta = current - self._prev_tilt
+        if abs(delta) > 1e-9:
+            self.rotate(np.deg2rad(delta), about_point=self.mirror_line.get_center())
+            self._prev_tilt = current
 
     def _create_mirror_visual(self):
         """Create the visual representation of the mirror."""
@@ -187,35 +204,33 @@ class PlaneMirror(Mirror):
         return self.mirror_line.get_center()
 
     def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
-        """Calculate intersection with the mirror plane."""
-        # Mirror is a vertical plane at x = mirror_center_x
-        mirror_center = self.get_optical_plane_position()
-        mirror_x = mirror_center[0]
+        """Calculate intersection with the (possibly tilted) mirror plane."""
+        tilt_rad = np.deg2rad(self.tilt_tracker.get_value())
+        center = self.mirror_line.get_center()
+        # Normal to a mirror tilted by tilt_rad from vertical: rotate LEFT by tilt_rad
+        normal = np.array([-np.cos(tilt_rad), -np.sin(tilt_rad), 0.0])
 
-        if abs(ray_direction[0]) < 1e-10:
+        denom = np.dot(ray_direction, normal)
+        if abs(denom) < 1e-10:
             return None, False
 
-        t = (mirror_x - ray_start[0]) / ray_direction[0]
-
+        t = np.dot(center - ray_start, normal) / denom
         if t < 0:
             return None, False
 
         intersection = ray_start + t * ray_direction
 
-        # Check if within mirror height
-        mirror_y = mirror_center[1]
-        if abs(intersection[1] - mirror_y) > self.mirror_height / 2:
+        # Check within mirror height along the surface direction
+        surface_dir = np.array([-np.sin(tilt_rad), np.cos(tilt_rad), 0.0])
+        if abs(np.dot(intersection - center, surface_dir)) > self.mirror_height / 2:
             return None, False
 
         return intersection, True
 
     def get_normal_at(self, point: np.ndarray) -> np.ndarray:
-        """
-        Get the normal to the mirror at a given point.
-
-        For a vertical plane mirror, the normal is always horizontal (LEFT).
-        """
-        return LEFT  # Normal pointing to the left (toward incident rays from right)
+        """Normal to the mirror, accounting for tilt."""
+        tilt_rad = np.deg2rad(self.tilt_tracker.get_value())
+        return np.array([-np.cos(tilt_rad), -np.sin(tilt_rad), 0.0])
 
 
 class SphericalMirror(Mirror):
@@ -224,18 +239,16 @@ class SphericalMirror(Mirror):
 
     Uses paraxial approximation and ABCD matrix formalism.
 
-    Convention for radius of curvature R:
-    - R > 0: Concave mirror (converging) — center of curvature on the same side as incident rays
-    - R < 0: Convex mirror  (diverging)  — center of curvature on the opposite side
+    Convention for radius of curvature R (French algebraic sign convention):
+    - R < 0: Concave mirror (converging) — center of curvature on the incident side
+    - R > 0: Convex mirror  (diverging)  — center of curvature on the opposite side
 
-    In paraxial optics, f = R/2.
-
-    Transfer matrix: [[1, 0], [-2/R, 1]]
+    Focal length f = R/2 (signed).  Transfer matrix: [[1, 0], [2/R, 1]]
     """
 
     def __init__(
         self,
-        radius_of_curvature: float = 4.0,
+        radius_of_curvature: float = -4.0,
         height: float = 3.0,
         refractive_index: float = 1.0,
         aperture_angle: float = 60 * DEGREES,
@@ -246,6 +259,7 @@ class SphericalMirror(Mirror):
         coating_count: int = 5,
         tip_length: float = 0.3,
         show_focal_point: bool = True,
+        tilt_deg: float = 0.0,
         **kwargs,
     ):
         """
@@ -280,6 +294,8 @@ class SphericalMirror(Mirror):
             Length of the half-arrow tips at the extremities
         show_focal_point : bool
             Whether to display the focal point dot
+        tilt_deg : float
+            Initial tilt angle in degrees (0 = vertical mirror)
         """
         super().__init__(refractive_index=refractive_index, **kwargs)
         self.radius_of_curvature = radius_of_curvature
@@ -295,19 +311,29 @@ class SphericalMirror(Mirror):
 
         self._create_mirror_visual()
 
+        self.tilt_tracker = ValueTracker(tilt_deg)
+        self._prev_tilt = tilt_deg
+        if tilt_deg != 0.0:
+            self.rotate(np.deg2rad(tilt_deg))
+        self.add_updater(self._update_tilt)
+
+    def _update_tilt(self, _mob):
+        current = self.tilt_tracker.get_value()
+        delta = current - self._prev_tilt
+        if abs(delta) > 1e-9:
+            self.rotate(np.deg2rad(delta), about_point=self.mirror_line.get_center())
+            self._prev_tilt = current
+
     def _create_mirror_visual(self):
         """Create the visual representation of the spherical mirror.
 
-        - Hatching: on the back side (opposite to self.facing)
-        - Half-arrows: on the concave side (facing × sign(R)), pointing outward
-        - Focal point: facing_x_sign × R/2  (real focus for concave, virtual for convex)
+        - Hatching: facing="left" → go RIGHT; facing="right" → go LEFT
+        - Half-arrows: R<0 (concave/converging) → point LEFT; R>0 (convex) → point RIGHT
+        - Focal point: at R/2 from the mirror (signed: R<0 → left of mirror)
         """
         tip_angle = 30 * DEGREES
         top_pos = UP * self.mirror_height / 2
         bottom_pos = DOWN * self.mirror_height / 2
-
-        # +1 if facing right, -1 if facing left (Manim x-axis convention)
-        facing_x = 1.0 if self.facing == "right" else -1.0
 
         # Mirror surface line
         mirror_line = Line(
@@ -317,29 +343,23 @@ class SphericalMirror(Mirror):
             color=self.mirror_color,
         )
 
-        # Hatching on the BACK side (opposite to facing)
-        # back_x = -facing_x
-        # hatch_offset = back_x * 0.02 * self.mirror_height
+        # Hatching: facing="left" → go RIGHT (+x), facing="right" → go LEFT (−x)
+        hatch_x = 1.0 if self.facing == "left" else -1.0
         hatch_offset = mirror_line.get_center()[0]
         hatch_length = self.mirror_height / self.coating_count * 0.6
-        hatch_dir = np.array([np.cos(45 * DEGREES), np.sin(45 * DEGREES), 0.0]) * facing_x
+        hatch_dir = np.array([np.cos(45 * DEGREES), np.sin(45 * DEGREES), 0.0]) * hatch_x
         for i in range(self.coating_count):
             y = (-self.mirror_height / 2) + (i + 0.5) * self.mirror_height / self.coating_count
             center = np.array([hatch_offset, y, 0.0])
             self.add(Line(
-                center ,
-                center +  hatch_length * hatch_dir,
+                center,
+                center + hatch_length * hatch_dir,
                 stroke_width=2,
                 color=self.coating_color,
             ))
 
-        # Half-arrows on the CONCAVE side, always pointing outward.
-        # concave_x = facing_x * sign(R):
-        #   facing="left"  + R>0 (concave) → concave_x = -1 → LEFT  (bowl opens left)
-        #   facing="left"  + R<0 (convex)  → concave_x = +1 → RIGHT (hollow on right)
-        #   facing="right" + R>0 (concave) → concave_x = +1 → RIGHT
-        #   facing="right" + R<0 (convex)  → concave_x = -1 → LEFT
-        concave_x = facing_x * np.sign(self.radius_of_curvature)
+        # Half-arrows: R<0 (concave) → tips point LEFT; R>0 (convex) → tips point RIGHT
+        concave_x = np.sign(self.radius_of_curvature)
         concave_vec = np.array([concave_x, 0.0, 0.0])
         top_tip = Line(
             top_pos,
@@ -356,10 +376,8 @@ class SphericalMirror(Mirror):
             color=self.mirror_color,
         )
 
-        # Focal point: x = facing_x * R/2
-        # Concave (R>0): focus on the incident side (same as facing direction)
-        # Convex  (R<0): virtual focus on the back side
-        focal_x = facing_x * (self.radius_of_curvature / 2)
+        # Focal point at R/2 from mirror vertex (R<0 → left of mirror for concave)
+        focal_x = self.radius_of_curvature / 2
         focal_point = Dot(
             np.array([focal_x, 0.0, 0.0]),
             color=self.mirror_color,
@@ -384,37 +402,48 @@ class SphericalMirror(Mirror):
 
     def intersect(self, ray_start: np.ndarray, ray_direction: np.ndarray) -> tuple:
         """
-        Calculate intersection with the mirror plane.
+        Calculate intersection with the (possibly tilted) mirror plane.
 
         In the paraxial approximation, the mirror is treated as a plane.
         The curvature only affects the transfer matrix.
         """
-        mirror_center = self.mirror_line.get_center()
-        mirror_x = mirror_center[0]
+        tilt_rad = np.deg2rad(self.tilt_tracker.get_value())
+        center = self.mirror_line.get_center()
+        facing_x = 1.0 if self.facing == "right" else -1.0
+        # Normal = facing direction rotated by tilt
+        nx = facing_x * np.cos(tilt_rad)
+        ny = facing_x * np.sin(tilt_rad)
+        normal = np.array([nx, ny, 0.0])
 
-        if abs(ray_direction[0]) < 1e-10:
+        denom = np.dot(ray_direction, normal)
+        if abs(denom) < 1e-10:
             return None, False
 
-        t = (mirror_x - ray_start[0]) / ray_direction[0]
-
+        t = np.dot(center - ray_start, normal) / denom
         if t < 0:
             return None, False
 
         intersection = ray_start + t * ray_direction
 
-        mirror_y = mirror_center[1]
-        if abs(intersection[1] - mirror_y) > self.mirror_height / 2:
+        # Check within mirror height along the surface direction
+        surface_dir = np.array([-np.sin(tilt_rad), np.cos(tilt_rad), 0.0])
+        if abs(np.dot(intersection - center, surface_dir)) > self.mirror_height / 2:
             return None, False
 
         return intersection, True
 
     def get_normal_at(self, point: np.ndarray) -> np.ndarray:
-        """Normal points in the facing direction (toward incident rays)."""
-        return LEFT if self.facing == "left" else RIGHT
+        """Normal points in the facing direction, accounting for tilt."""
+        tilt_rad = np.deg2rad(self.tilt_tracker.get_value())
+        facing_x = 1.0 if self.facing == "right" else -1.0
+        return np.array([facing_x * np.cos(tilt_rad), facing_x * np.sin(tilt_rad), 0.0])
 
     def get_transfer_matrix(self) -> np.ndarray:
-        """ABCD transfer matrix: [[1, 0], [-2/R, 1]]"""
-        return np.array([[1.0, 0.0], [-2.0 / self.radius_of_curvature, 1.0]])
+        """ABCD transfer matrix: [[1, 0], [2/R, 1]]
+        R < 0 (concave/converging): C = 2/R < 0 → focusing
+        R > 0 (convex/diverging):   C = 2/R > 0 → defocusing
+        """
+        return np.array([[1.0, 0.0], [2.0 / self.radius_of_curvature, 1.0]])
 
     def propagate_ray(
         self,
@@ -425,32 +454,47 @@ class SphericalMirror(Mirror):
         """
         Calculate reflected ray direction using paraxial ABCD matrix formalism.
 
-        θ is always normalised to the +x convention before the ABCD matrix,
-        then converted back to the physical reflected direction.
+        For a tilted mirror the ray is first rotated into the mirror's local frame
+        (where the mirror is vertical), the ABCD matrix is applied, then the result
+        is rotated back to the world frame.
         """
+        tilt_rad = np.deg2rad(self.tilt_tracker.get_value())
+        c, s = np.cos(tilt_rad), np.sin(tilt_rad)
+
+        # Rotate ray direction into local frame (un-rotate by tilt_rad)
+        local_dx = ray_direction[0] * c + ray_direction[1] * s
+        local_dy = -ray_direction[0] * s + ray_direction[1] * c
+
         mirror_center = self.mirror_line.get_center()
         mirror_y_axis = mirror_center[1]
 
-        y_in = intersection_point[1] - mirror_y_axis
+        # Height in local frame relative to mirror center
+        local_ip_x = (intersection_point[0] - mirror_center[0]) * c + (intersection_point[1] - mirror_y_axis) * s
+        local_ip_y = -(intersection_point[0] - mirror_center[0]) * s + (intersection_point[1] - mirror_y_axis) * c
+        y_in = local_ip_y
 
-        if abs(ray_direction[0]) > 1e-10:
-            theta_in = ray_direction[1] / ray_direction[0]
+        if abs(local_dx) > 1e-10:
+            theta_in = local_dy / local_dx
         else:
-            theta_in = np.sign(ray_direction[1]) * 1e6
+            theta_in = np.sign(local_dy) * 1e6
 
-        # Normalise theta to +x convention (ABCD matrix assumes ray going in +x)
-        direction_sign = 1.0 if ray_direction[0] >= 0 else -1.0
+        # Normalise theta to +x convention
+        direction_sign = 1.0 if local_dx >= 0 else -1.0
         theta_in_norm = theta_in * direction_sign
 
         M = self.get_transfer_matrix()
         state_out = M @ np.array([y_in, theta_in_norm])
         theta_out_norm = state_out[1]
 
-        # Physical direction: [reflected_x, theta_out_norm, 0].
-        # theta_out_norm is the paraxial slope dy/dx in the unfolded +x convention;
-        # using it directly gives the correct focal convergence (NOT *reflected_x).
-        reflected_x = -direction_sign
-        new_direction = np.array([reflected_x, theta_out_norm, 0.0])
+        # Reflected direction in local frame
+        reflected_local_x = -direction_sign
+        local_reflected = np.array([reflected_local_x, theta_out_norm, 0.0])
+        local_reflected = local_reflected / np.linalg.norm(local_reflected)
+
+        # Rotate back to world frame
+        world_x = local_reflected[0] * c - local_reflected[1] * s
+        world_y = local_reflected[0] * s + local_reflected[1] * c
+        new_direction = np.array([world_x, world_y, 0.0])
         new_direction = new_direction / np.linalg.norm(new_direction)
 
         return new_direction, True

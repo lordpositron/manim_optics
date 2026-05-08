@@ -311,7 +311,7 @@ class LinearGraticule(Graticule):
     Useful for measuring distances along one axis.
     """
 
-    def __init__(self, direction: np.ndarray = RIGHT, **kwargs):
+    def __init__(self, direction: np.ndarray = RIGHT, skip_zero_label: bool = False, **kwargs):
         """
         Initialize a linear graticule.
 
@@ -323,6 +323,7 @@ class LinearGraticule(Graticule):
             Additional arguments passed to Graticule
         """
         super().__init__(**kwargs)
+        self.skip_zero_label = skip_zero_label
 
         # Normalize direction
         self.direction = direction / np.linalg.norm(direction)
@@ -388,7 +389,7 @@ class LinearGraticule(Graticule):
                 )
 
                 # Add label for primary ticks
-                if self.show_labels:
+                if self.show_labels and not (self.skip_zero_label and value == 0):
                     label = self._create_label(value, pos, self.perpendicular)
                     self.labels.add(label)
             else:
@@ -468,6 +469,7 @@ class CrossGraticule(Graticule):
             label_font_size=self.label_font_size,
             label_rotation=self.label_rotation,
             decimal_places=self.decimal_places,
+            skip_zero_label=True,
         )
 
         # Create vertical axis (Y)
@@ -491,6 +493,7 @@ class CrossGraticule(Graticule):
             label_font_size=self.label_font_size,
             label_rotation=self.label_rotation,
             decimal_places=self.decimal_places,
+            skip_zero_label=True,
         )
 
         self.add(self.x_axis, self.y_axis)
@@ -533,9 +536,9 @@ class GridGraticule(Graticule):
         """
         super().__init__(**kwargs)
 
-        # Use provided dimensions or default to the base length
-        self.width = width if width is not None else self.length
-        self.height = height if height is not None else self.length
+        # Use grid_width/grid_height to avoid clashing with Mobject.width/height properties
+        self.grid_width = width if width is not None else self.length
+        self.grid_height = height if height is not None else self.length
         self.grid_stroke_width = grid_stroke_width
         self.show_grid_labels = show_grid_labels
 
@@ -551,8 +554,8 @@ class GridGraticule(Graticule):
         # Create border frame only if requested
         if self.show_main_line:
             self.frame = Rectangle(
-                width=self.width,
-                height=self.height,
+                width=self.grid_width,
+                height=self.grid_height,
                 stroke_width=self.primary_stroke_width,
                 color=self.color,
                 fill_opacity=0,
@@ -562,8 +565,8 @@ class GridGraticule(Graticule):
             self.frame = None
 
         # Calculate number of units
-        num_x_units = self.width / self.unit_length
-        num_y_units = self.height / self.unit_length
+        num_x_units = self.grid_width / self.unit_length
+        num_y_units = self.grid_height / self.unit_length
 
         # Grid lines
         self.grid_lines = VGroup()
@@ -577,12 +580,12 @@ class GridGraticule(Graticule):
             x_pos = (value + self.zero_position * num_x_units) * self.unit_length
 
             # Check if within bounds
-            if abs(x_pos) <= self.width / 2:
+            if abs(x_pos) <= self.grid_width / 2:
                 is_primary = (i * self.secondary_interval) % self.primary_interval == 0
 
                 line = Line(
-                    [x_pos, -self.height / 2, 0],
-                    [x_pos, self.height / 2, 0],
+                    [x_pos, -self.grid_height / 2, 0],
+                    [x_pos, self.grid_height / 2, 0],
                     stroke_width=(
                         self.primary_stroke_width
                         if is_primary
@@ -604,7 +607,7 @@ class GridGraticule(Graticule):
                         font_size=self.label_font_size,
                         color=self.color,
                     )
-                    label.next_to([x_pos, -self.height / 2, 0], DOWN, buff=0.1)
+                    label.next_to([x_pos, -self.grid_height / 2, 0], DOWN, buff=0.1)
                     if self.label_rotation != 0:
                         label.rotate(self.label_rotation)
                     self.labels.add(label)
@@ -618,12 +621,12 @@ class GridGraticule(Graticule):
             y_pos = (value + self.zero_position * num_y_units) * self.unit_length
 
             # Check if within bounds
-            if abs(y_pos) <= self.height / 2:
+            if abs(y_pos) <= self.grid_height / 2:
                 is_primary = (i * self.secondary_interval) % self.primary_interval == 0
 
                 line = Line(
-                    [-self.width / 2, y_pos, 0],
-                    [self.width / 2, y_pos, 0],
+                    [-self.grid_width / 2, y_pos, 0],
+                    [self.grid_width / 2, y_pos, 0],
                     stroke_width=(
                         self.primary_stroke_width
                         if is_primary
@@ -645,7 +648,7 @@ class GridGraticule(Graticule):
                         font_size=self.label_font_size,
                         color=self.color,
                     )
-                    label.next_to([-self.width / 2, y_pos, 0], LEFT, buff=0.1)
+                    label.next_to([-self.grid_width / 2, y_pos, 0], LEFT, buff=0.1)
                     if self.label_rotation != 0:
                         label.rotate(self.label_rotation)
                     self.labels.add(label)
