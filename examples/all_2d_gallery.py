@@ -22,14 +22,6 @@ class Gallery2D(OpticalScene):
     ANIM_TIME = 0.5
     TEXT_TIME = 0.2
 
-    def construct(self):
-        # self.scene_01_ray_bundles()
-        # self.scene_02_lenses()
-        # self.scene_03_beam_stops()
-        # self.scene_04_mirrors()
-        # self.scene_05_eye()
-        self.scene_06_graticules()
-
     # ─── helpers ──────────────────────────────────────────────────────────
 
     def _clear(self):
@@ -542,3 +534,28 @@ class Gallery2D(OpticalScene):
         self.wait(0.8)
         self.play(FadeOut(grid), FadeOut(lbl3), run_time=0.4)
         self.wait(0.3)
+
+
+class GalleryRay(Gallery2D):
+    def construct(self):
+        self.scene_01_ray_bundles()
+
+class GalleryLens(Gallery2D):
+    def construct(self):
+        self.scene_02_lenses()
+
+class GalleryBeamStop(Gallery2D):
+    def construct(self):
+        self.scene_03_beam_stops()
+
+class GalleryMirror(Gallery2D):
+    def construct(self):
+        self.scene_04_mirrors()
+
+class GalleryEyeModel(Gallery2D):
+    def construct(self):
+        self.scene_05_eye()
+
+class GalleryGraticules(Gallery2D):
+    def construct(self):
+        self.scene_06_graticules()
