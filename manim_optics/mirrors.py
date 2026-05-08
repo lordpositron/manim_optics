@@ -87,7 +87,7 @@ class PlaneMirror(Mirror):
         self,
         height: float = 3.0,
         refractive_index: float = 1.0,
-        coating_side: str = "right",
+        coating_side: str = "left",
         coating_count: int = 5,
         coating_angle_deg: float = 45.0,
         coating_length_ratio: float = 0.05,
@@ -107,7 +107,8 @@ class PlaneMirror(Mirror):
         refractive_index : float
             Refractive index of the medium (default: 1.0 for air)
         coating_side : str
-            Side where coating indicators are drawn ("left" or "right")
+            Side of the reflective surface ("left" or "right", default: "right").
+            The coating/hatching indicators are drawn on the OPPOSITE side.
         coating_count : int
             Number of coating indicators along the mirror
         coating_angle_deg : float
@@ -154,7 +155,8 @@ class PlaneMirror(Mirror):
             line_length = self.mirror_height * self.coating_length_ratio
             angle = self.coating_angle_deg * DEGREES
             direction = np.array([np.cos(angle), np.sin(angle), 0.0])
-            side_sign = -1.0 if self.coating_side == "left" else 1.0
+            # coating_side is the reflective surface side; hatching goes on the opposite side
+            side_sign = 1.0 if self.coating_side == "left" else -1.0
             offset = side_sign * 0.02 * self.mirror_height
 
             for i in range(self.coating_count):
@@ -223,12 +225,12 @@ class SphericalMirror(Mirror):
     Uses paraxial approximation and ABCD matrix formalism.
 
     Convention for radius of curvature R:
-    - R > 0: Concave mirror (center of curvature is in the direction of incident light)
-    - R < 0: Convex mirror (center of curvature is opposite to incident light)
+    - R > 0: Concave mirror (converging) — center of curvature on the same side as incident rays
+    - R < 0: Convex mirror  (diverging)  — center of curvature on the opposite side
 
-    In paraxial optics, the focal length of a spherical mirror is f = R/2.
+    In paraxial optics, f = R/2.
 
-    Transfer matrix for spherical mirror: [[1, 0], [-2/R, 1]]
+    Transfer matrix: [[1, 0], [-2/R, 1]]
     """
 
     def __init__(
@@ -237,7 +239,13 @@ class SphericalMirror(Mirror):
         height: float = 3.0,
         refractive_index: float = 1.0,
         aperture_angle: float = 60 * DEGREES,
-        side: str = "left",
+        facing: str = "left",
+        stroke_width: float = 4.0,
+        mirror_color=GREY_A,
+        coating_color=GREY_C,
+        coating_count: int = 5,
+        tip_length: float = 0.3,
+        show_focal_point: bool = True,
         **kwargs,
     ):
         """
@@ -246,83 +254,124 @@ class SphericalMirror(Mirror):
         Parameters
         ----------
         radius_of_curvature : float
-            Radius of curvature R (positive for concave, negative for convex)
+            Radius of curvature R (positive = concave/converging, negative = convex/diverging)
         height : float
             Height of the mirror aperture
         refractive_index : float
             Refractive index of the medium (default: 1.0 for air)
         aperture_angle : float
             Angular aperture of the mirror (in radians)
-        side : str
-            Side where the reflective surface is ("left" or "right")
-            - "left": rays come from the right, reflect back to the right
-            - "right": rays come from the left, reflect back to the left
+        facing : str
+            Direction the reflective surface faces — where incident rays come from.
+            - "left"  (default): reflective surface faces left,  rays arrive from the left
+            - "right": reflective surface faces right, rays arrive from the right
+            Visual consequences:
+            - Hatching (croisillons) appears on the OPPOSITE side
+            - Half-arrow tips appear on the CONCAVE side (facing × sign(R))
+        stroke_width : float
+            Stroke width of the mirror line
+        mirror_color : color
+            Color of the mirror line and tips
+        coating_color : color
+            Color of the hatching lines
+        coating_count : int
+            Number of hatching lines
+        tip_length : float
+            Length of the half-arrow tips at the extremities
+        show_focal_point : bool
+            Whether to display the focal point dot
         """
         super().__init__(refractive_index=refractive_index, **kwargs)
         self.radius_of_curvature = radius_of_curvature
         self.mirror_height = height
         self.aperture_angle = aperture_angle
-        self.side = side
+        self.facing = facing
+        self.stroke_width = stroke_width
+        self.mirror_color = mirror_color
+        self.coating_color = coating_color
+        self.coating_count = coating_count
+        self.tip_length = tip_length
+        self.show_focal_point = show_focal_point
 
-        # Create visual representation
         self._create_mirror_visual()
 
     def _create_mirror_visual(self):
         """Create the visual representation of the spherical mirror.
 
-        In the paraxial approximation, the mirror is represented as a plane.
-        The curvature only affects the transfer matrix, not the geometry.
+        - Hatching: on the back side (opposite to self.facing)
+        - Half-arrows: on the concave side (facing × sign(R)), pointing outward
+        - Focal point: facing_x_sign × R/2  (real focus for concave, virtual for convex)
         """
-        # Mirror surface (vertical line, like plane mirror)
+        tip_angle = 30 * DEGREES
+        top_pos = UP * self.mirror_height / 2
+        bottom_pos = DOWN * self.mirror_height / 2
+
+        # +1 if facing right, -1 if facing left (Manim x-axis convention)
+        facing_x = 1.0 if self.facing == "right" else -1.0
+
+        # Mirror surface line
         mirror_line = Line(
-            UP * self.mirror_height / 2,
-            DOWN * self.mirror_height / 2,
-            stroke_width=6,
-            color=GREY_A,
+            top_pos,
+            bottom_pos,
+            stroke_width=self.stroke_width,
+            color=self.mirror_color,
         )
 
-        # Reflective coating indicator (diagonal lines at 45° on the back side)
-        num_lines = 5
-        line_length = 0.2
+        # Hatching on the BACK side (opposite to facing)
+        # back_x = -facing_x
+        # hatch_offset = back_x * 0.02 * self.mirror_height
+        hatch_offset = mirror_line.get_center()[0]
+        hatch_length = self.mirror_height / self.coating_count * 0.6
+        hatch_dir = np.array([np.cos(45 * DEGREES), np.sin(45 * DEGREES), 0.0]) * facing_x
+        for i in range(self.coating_count):
+            y = (-self.mirror_height / 2) + (i + 0.5) * self.mirror_height / self.coating_count
+            center = np.array([hatch_offset, y, 0.0])
+            self.add(Line(
+                center ,
+                center +  hatch_length * hatch_dir,
+                stroke_width=2,
+                color=self.coating_color,
+            ))
 
-        if self.side == "left":
-            # Reflective surface on the left, diagonal lines on the right (back side)
-            for i in range(num_lines):
-                y = (i - num_lines / 2 + 0.5) * self.mirror_height / num_lines
-                # 45° lines going from bottom-left to top-right
-                start_pos = RIGHT * 0.05 + UP * (y - line_length / 2)
-                end_pos = RIGHT * (0.05 + line_length) + UP * (y + line_length / 2)
-                small_line = Line(
-                    start_pos,
-                    end_pos,
-                    stroke_width=2,
-                    color=GREY_C,
-                )
-                self.add(small_line)
-            # Focal point on the left
-            focal_length = self.radius_of_curvature / 2
-            focal_point = Dot(LEFT * abs(focal_length), color=GREY_A, radius=0.05)
-        else:
-            # Reflective surface on the right, diagonal lines on the left (back side)
-            for i in range(num_lines):
-                y = (i - num_lines / 2 + 0.5) * self.mirror_height / num_lines
-                # 45° lines going from bottom-right to top-left
-                start_pos = LEFT * 0.05 + UP * (y - line_length / 2)
-                end_pos = LEFT * (0.05 + line_length) + UP * (y + line_length / 2)
-                small_line = Line(
-                    start_pos,
-                    end_pos,
-                    stroke_width=2,
-                    color=GREY_C,
-                )
-                self.add(small_line)
-            # Focal point on the right
-            focal_length = self.radius_of_curvature / 2
-            focal_point = Dot(RIGHT * abs(focal_length), color=GREY_A, radius=0.05)
+        # Half-arrows on the CONCAVE side, always pointing outward.
+        # concave_x = facing_x * sign(R):
+        #   facing="left"  + R>0 (concave) → concave_x = -1 → LEFT  (bowl opens left)
+        #   facing="left"  + R<0 (convex)  → concave_x = +1 → RIGHT (hollow on right)
+        #   facing="right" + R>0 (concave) → concave_x = +1 → RIGHT
+        #   facing="right" + R<0 (convex)  → concave_x = -1 → LEFT
+        concave_x = facing_x * np.sign(self.radius_of_curvature)
+        concave_vec = np.array([concave_x, 0.0, 0.0])
+        top_tip = Line(
+            top_pos,
+            top_pos + concave_vec * self.tip_length * np.sin(tip_angle)
+                     + UP * self.tip_length * np.cos(tip_angle),
+            stroke_width=self.stroke_width,
+            color=self.mirror_color,
+        )
+        bottom_tip = Line(
+            bottom_pos,
+            bottom_pos + concave_vec * self.tip_length * np.sin(tip_angle)
+                        + DOWN * self.tip_length * np.cos(tip_angle),
+            stroke_width=self.stroke_width,
+            color=self.mirror_color,
+        )
+
+        # Focal point: x = facing_x * R/2
+        # Concave (R>0): focus on the incident side (same as facing direction)
+        # Convex  (R<0): virtual focus on the back side
+        focal_x = facing_x * (self.radius_of_curvature / 2)
+        focal_point = Dot(
+            np.array([focal_x, 0.0, 0.0]),
+            color=self.mirror_color,
+            radius=0.05,
+        )
+        focal_point.set_opacity(1.0 if self.show_focal_point else 0.0)
 
         self.mirror_line = mirror_line
+        self.top_tip = top_tip
+        self.bottom_tip = bottom_tip
         self.focal_point = focal_point
-        self.add(mirror_line, focal_point)
+        self.add(mirror_line, top_tip, bottom_tip, focal_point)
 
     def get_optical_plane_position(self) -> np.ndarray:
         """
@@ -340,24 +389,19 @@ class SphericalMirror(Mirror):
         In the paraxial approximation, the mirror is treated as a plane.
         The curvature only affects the transfer matrix.
         """
-        # Mirror is a vertical plane at x = mirror_line center x position
-        # Use the mirror_line position, not the VGroup center (which includes focal point)
         mirror_center = self.mirror_line.get_center()
         mirror_x = mirror_center[0]
 
         if abs(ray_direction[0]) < 1e-10:
-            # Ray is parallel to mirror plane
             return None, False
 
         t = (mirror_x - ray_start[0]) / ray_direction[0]
 
         if t < 0:
-            # Intersection is behind the ray start
             return None, False
 
         intersection = ray_start + t * ray_direction
 
-        # Check if intersection is within mirror height
         mirror_y = mirror_center[1]
         if abs(intersection[1] - mirror_y) > self.mirror_height / 2:
             return None, False
@@ -365,26 +409,11 @@ class SphericalMirror(Mirror):
         return intersection, True
 
     def get_normal_at(self, point: np.ndarray) -> np.ndarray:
-        """
-        Get the normal to the mirror plane.
-
-        In the paraxial approximation, the mirror is a vertical plane.
-        Normal points toward the reflective side.
-        """
-        if self.side == "left":
-            return LEFT  # Normal points left (reflective side)
-        else:
-            return RIGHT  # Normal points right (reflective side)
+        """Normal points in the facing direction (toward incident rays)."""
+        return LEFT if self.facing == "left" else RIGHT
 
     def get_transfer_matrix(self) -> np.ndarray:
-        """
-        Get the ABCD transfer matrix for a spherical mirror.
-
-        For a spherical mirror with radius of curvature R:
-        [[1, 0], [-2/R, 1]]
-
-        The focal length is f = R/2
-        """
+        """ABCD transfer matrix: [[1, 0], [-2/R, 1]]"""
         return np.array([[1.0, 0.0], [-2.0 / self.radius_of_curvature, 1.0]])
 
     def propagate_ray(
@@ -396,47 +425,32 @@ class SphericalMirror(Mirror):
         """
         Calculate reflected ray direction using paraxial ABCD matrix formalism.
 
-        The ray state is [y, θ] where:
-        - y = height relative to optical axis
-        - θ = angle (paraxial: θ ≈ tan(θ) ≈ dy/dx)
-
-        Transfer matrix for spherical mirror: [[1, 0], [-2/R, 1]]
-
-        For a mirror, reflection inverts the horizontal direction.
+        θ is always normalised to the +x convention before the ABCD matrix,
+        then converted back to the physical reflected direction.
         """
-        # Use mirror_line center, not VGroup center
         mirror_center = self.mirror_line.get_center()
         mirror_y_axis = mirror_center[1]
 
-        # Input ray state
         y_in = intersection_point[1] - mirror_y_axis
 
-        # Angle in paraxial approximation: θ ≈ tan(θ) = dy/dx
         if abs(ray_direction[0]) > 1e-10:
             theta_in = ray_direction[1] / ray_direction[0]
         else:
             theta_in = np.sign(ray_direction[1]) * 1e6
 
-        # Apply transfer matrix for spherical mirror
+        # Normalise theta to +x convention (ABCD matrix assumes ray going in +x)
+        direction_sign = 1.0 if ray_direction[0] >= 0 else -1.0
+        theta_in_norm = theta_in * direction_sign
+
         M = self.get_transfer_matrix()
-        state_in = np.array([y_in, theta_in])
-        state_out = M @ state_in
+        state_out = M @ np.array([y_in, theta_in_norm])
+        theta_out_norm = state_out[1]
 
-        theta_out = state_out[1]
-
-        # For a mirror, the ray is reflected back
-        # Determine direction based on which side the mirror is on
-        if self.side == "left":
-            # Mirror on left: rays from right are reflected back to right
-            # Incident from right (+x): direction ≈ [1, θ_in, 0]
-            # Reflected to right: direction ≈ [-1, -θ_out, 0]
-            new_direction = np.array([-1.0, -theta_out, 0.0])
-        else:
-            # Mirror on right: rays from left are reflected back to left
-            # Incident from left (+x): direction ≈ [1, θ_in, 0]
-            # Reflected to left: direction ≈ [-1, -θ_out, 0]
-            new_direction = np.array([-1.0, -theta_out, 0.0])
-
+        # Physical direction: [reflected_x, theta_out_norm, 0].
+        # theta_out_norm is the paraxial slope dy/dx in the unfolded +x convention;
+        # using it directly gives the correct focal convergence (NOT *reflected_x).
+        reflected_x = -direction_sign
+        new_direction = np.array([reflected_x, theta_out_norm, 0.0])
         new_direction = new_direction / np.linalg.norm(new_direction)
 
         return new_direction, True
