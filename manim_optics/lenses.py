@@ -6,7 +6,20 @@ This module provides lens classes for optical simulations.
 """
 
 import numpy as np
-from manim import *
+from manim import (
+    DEGREES,
+    Line,
+    ValueTracker,
+    UP,
+    DOWN,
+    Transform,
+    AnimationGroup,
+    FadeIn,
+    Dot,
+    LEFT,
+    RIGHT,
+    BLUE,
+)
 
 from .base import OpticalElement
 

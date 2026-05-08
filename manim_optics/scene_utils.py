@@ -6,7 +6,32 @@ Helper functions and classes for creating optical scenes.
 """
 
 import numpy as np
-from manim import *
+from manim import (
+    Scene,
+    Line,
+    NumberPlane,
+    MathTex,
+    Tex,
+    VGroup,
+    Arrow,
+    DoubleArrow,
+    Text,
+)
+from manim import (
+    ORIGIN,
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+    GREY_C,
+    GREY_B,
+    GREY_D,
+    WHITE,
+    BLUE_C,
+    BLACK,
+)
+from manim import Mobject, Animation
+from manim import Write
 
 
 class OpticalScene(Scene):

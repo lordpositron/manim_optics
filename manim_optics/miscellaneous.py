@@ -8,7 +8,25 @@ This module provides utility classes like graticules for measurements and refere
 from typing import Literal
 
 import numpy as np
-from manim import *
+from manim import (
+    Animation,
+    AnimationGroup,
+    Create,
+    FadeIn,
+    FadeOut,
+    Line,
+    Rectangle,
+    Text,
+    VGroup,
+    DEGREES,
+    PI,
+    WHITE,
+    YELLOW,
+    RIGHT,
+    UP,
+    DOWN,
+    LEFT,
+)
 
 
 class Graticule(VGroup):

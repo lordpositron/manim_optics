@@ -8,7 +8,7 @@ This module provides mirror classes for optical simulations.
 from abc import abstractmethod
 
 import numpy as np
-from manim import *
+from manim import DEGREES, Dot, GREY_A, GREY_C, Line, UP, DOWN, LEFT, RIGHT
 
 from .base import OpticalElement
 

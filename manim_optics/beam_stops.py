@@ -6,7 +6,7 @@ This module provides beam stop implementations for optical simulations.
 """
 
 import numpy as np
-from manim import *
+from manim import Arc, DEGREES, Line, ValueTracker, GREY_D, RED_D, UP, DOWN
 
 from .base import OpticalElement
 

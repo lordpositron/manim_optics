@@ -7,7 +7,23 @@ using principal planes (H, H') and nodal points (N, N').
 """
 
 import numpy as np
-from manim import *
+from manim import (
+    ArcBetweenPoints,
+    DashedLine,
+    Dot,
+    Text,
+    ValueTracker,
+    UP,
+    DOWN,
+    RIGHT,
+    WHITE,
+    BLUE_D,
+    YELLOW,
+    GrowFromCenter,
+    FadeIn,
+    AnimationGroup,
+    FadeOut,
+)
 
 from .base import OpticalElement
 

@@ -8,7 +8,7 @@ This module provides the base OpticalElement class and utility functions.
 from abc import ABC, abstractmethod
 
 import numpy as np
-from manim import *
+from manim import Animation, FadeIn, VGroup, RIGHT, UP
 
 
 def rotate_vector_2d(vector: np.ndarray, angle: float) -> np.ndarray:

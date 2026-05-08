@@ -6,7 +6,17 @@ This module provides the Eye class for optical simulations.
 """
 
 import numpy as np
-from manim import *
+from manim import (
+    ArcBetweenPoints,
+    ORIGIN,
+    RIGHT,
+    VGroup,
+    Wait,
+    BLUE_D,
+    BLUE_C,
+    WHITE,
+    LEFT,
+)
 
 from .beam_stops import ArcBeamStop, CircularAperture
 from .lenses import ConvergingLens

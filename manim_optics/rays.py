@@ -12,11 +12,37 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
-from manim import *
+from manim import (
+    AnimationGroup,
+    Animation,
+    DashedVMobject,
+    Mobject,
+    VMobject,
+    ValueTracker,
+    VectorizedPoint,
+    VGroup,
+    linear,
+    Uncreate,
+    Dot,
+    Text,
+    Arrow,
+    DashedLine,
+    AnimationGroup,
+    YELLOW,
+    RIGHT,
+    ORIGIN,
+    RED,
+    BLUE,
+    UP,
+    DOWN,
+    LEFT,
+    GREEN,
+)
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     from .base import OpticalElement
+    from .lenses import ThinLens
 
 
 class DynamicRay(VMobject):

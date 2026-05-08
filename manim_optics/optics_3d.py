@@ -8,7 +8,19 @@ Classes principales :
 """
 
 import numpy as np
-from manim import *
+from manim import (
+    AnimationGroup,
+    Circle,
+    Dot3D,
+    Line3D,
+    Surface,
+    ValueTracker,
+    VGroup,
+    BLUE_E,
+    RED,
+    YELLOW,
+)
+from manim import ORIGIN, UP, OUT, TAU, PI, RIGHT
 
 
 class OpticalElement3D(VGroup):
