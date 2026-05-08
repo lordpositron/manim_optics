@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "manim-optics"
-version = "0.0.1"
+version = "0.1.0"
 description = "An optics simulation library built on top of Manim"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [
-    { name = "Corentin Nannini", email = "votre.email@exemple.com" }
+    { name = "Corentin Nannini" }
 ]
 keywords = ["manim", "optics", "physics", "animation", "education"]
 classifiers = [
@@ -31,18 +31,18 @@ dependencies = [
     "manim>=0.20.0",
 ]
 
-# Development dependencies (installable via pip install -e ".[dev]")
+# Development dependencies
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
     "ruff>=0.4.0",
 ]
 
-# URLs for PyPI and GitHub
+# Project URLs
 [project.urls]
-Homepage = "https://github.com/votre-username/manim-optics"
-Repository = "https://github.com/votre-username/manim-optics.git"
-"Bug Tracker" = "https://github.com/votre-username/manim-optics/issues"
+Homepage = "https://github.com/lordpositron/manim_optics"
+Repository = "https://github.com/lordpositron/manim_optics.git"
+"Bug Tracker" = "https://github.com/lordpositron/manim_optics/issues"
 
 [tool.setuptools]
 packages = ["manim_optics"]
@@ -53,13 +53,15 @@ target-version = "py310"
 line-length = 88
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "N", "B"] # Added N (pep8-naming) and B (flake8-bugbear)
-ignore = ["E501"] # Let the formatter handle line length
+select = ["E", "F", "I", "UP", "N", "B"]
+ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"] # Ignore unused imports in __init__ files
+"__init__.py" = ["F401"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
 addopts = "-v"

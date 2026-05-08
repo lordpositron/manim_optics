@@ -213,4 +213,6 @@ media/
 
 manim_venv/
 .vscode/
-.DS_Store
+
+# Agent/AI context files
+CLAUDE.md

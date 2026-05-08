@@ -437,9 +437,14 @@ class RayBundle(VGroup):
 
     def __init__(
         self,
-        start_points: NDArray[np.floating] | Mobject | list[NDArray[np.floating] | Mobject] | None = None,
+        start_points: NDArray[np.floating]
+        | Mobject
+        | list[NDArray[np.floating] | Mobject]
+        | None = None,
         directions: NDArray[np.floating] | list[NDArray[np.floating]] | None = None,
-        direction_vector: NDArray[np.floating] | list[NDArray[np.floating]] | None = None,
+        direction_vector: NDArray[np.floating]
+        | list[NDArray[np.floating]]
+        | None = None,
         direction_angle_rad: float | list[float] | None = None,
         direction_angle_deg: float | list[float] | None = None,
         num_rays: int | None = None,

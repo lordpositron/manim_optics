@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git mv *)",
+      "Bash(python -m pytest tests/test_optics_math.py -v)",
+      "Bash(python3 -m pytest tests/test_optics_math.py -v)",
+      "Bash(pip3 install *)",
+      "Bash(ls /Users/corentinn/Documents/manim_optics/manim_venv/bin/ 2>/dev/null || find /Users/corentinn -name \"pytest\" -maxdepth 6 2>/dev/null | head -5)",
+      "Read(//Users/corentinn/**)",
+      "Bash(manim_venv/bin/pytest tests/test_optics_math.py -v)",
+      "Bash(manim_venv/bin/pytest tests/test_manim_objects.py -v)"
+    ]
+  }
+}

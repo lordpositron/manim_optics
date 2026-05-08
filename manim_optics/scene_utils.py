@@ -5,7 +5,6 @@ Optical Scene Utilities
 Helper functions and classes for creating optical scenes.
 """
 
-
 import numpy as np
 from manim import *
 
