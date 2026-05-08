@@ -26,7 +26,7 @@ manim_optics provides thin lenses, mirrors, apertures, beam stops, composite opt
 
 ## Installation
 
-Install Manim first, including its native dependencies, by following the official Manim installation guide for your platform.
+manim_optics builds on top of [Manim Community](https://github.com/ManimCommunity/manim) (`manim >= 0.20.0`). Install Manim first, including its native dependencies, by following the [official Manim installation guide](https://docs.manim.community/en/stable/installation.html) for your platform.
 
 Then install this project from source:
 
