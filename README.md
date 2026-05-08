@@ -1,5 +1,7 @@
 # manim_optics
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Dynamic optics for Manim, built for scenes where light should behave like a living part of the animation rather than a static overlay.
 
 manim_optics provides thin lenses, mirrors, apertures, beam stops, composite optical systems, 3D optics, and reactive rays that recompute their trajectories automatically while your scene is moving.
