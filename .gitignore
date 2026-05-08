@@ -216,3 +216,4 @@ manim_venv/
 
 # Agent/AI context files
 CLAUDE.md
+.claude/

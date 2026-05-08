@@ -9,7 +9,6 @@ pytest.importorskip("manim", reason="Manim not installed")
 
 from manim_optics import ConvergingLens, DivergingLens, ThinLens  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Construction & validation
 # ---------------------------------------------------------------------------

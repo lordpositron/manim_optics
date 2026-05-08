@@ -54,10 +54,23 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "N", "B"]
-ignore = ["E501"]
+# Project conventions:
+# - `from manim import *` is used everywhere (manim's recommended style) → F403/F405 noise
+# - Linear-algebra code uses uppercase matrix names (M, A, B...) → N806 noise
+ignore = ["E501", "F403", "F405", "N806"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"examples/*.py" = [
+    "F841",  # unused locals — demo scenes keep them for readability
+    "B007",  # unused loop vars — same reason
+    "B905",  # zip without strict — demo code, length matches by construction
+    "N801",  # class names like "Example1_LensBundle" — intentional README anchors
+    "E741",  # ambiguous "l" — used in scene comprehensions
+]
+# Optical-physics convention: R/R1/R2 for radii of curvature (standard notation)
+"manim_optics/optics_3d.py" = ["N803"]
+"manim_optics/centered_system.py" = ["N803"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

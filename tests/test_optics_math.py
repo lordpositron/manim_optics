@@ -10,7 +10,6 @@ import math
 import numpy as np
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers — extract pure functions without triggering `from manim import *`
 # ---------------------------------------------------------------------------

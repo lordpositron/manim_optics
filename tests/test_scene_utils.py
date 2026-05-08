@@ -18,7 +18,6 @@ from manim_optics import (  # noqa: E402
     create_object_arrow,
 )
 
-
 # ---------------------------------------------------------------------------
 # calculate_image_position — extra coverage of magnification & sign rules
 # ---------------------------------------------------------------------------

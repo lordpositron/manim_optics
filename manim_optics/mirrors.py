@@ -422,7 +422,6 @@ class SphericalMirror(Mirror):
         state_in = np.array([y_in, theta_in])
         state_out = M @ state_in
 
-        y_out = state_out[0]
         theta_out = state_out[1]
 
         # For a mirror, the ray is reflected back

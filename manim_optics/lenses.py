@@ -427,7 +427,6 @@ class ThinLens(OpticalElement):
         state_in = np.array([y_in, theta_in])
         state_out = M @ state_in
 
-        y_out = state_out[0]
         theta_out = state_out[1]
 
         # Convert output angle back to direction vector

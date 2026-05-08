@@ -533,15 +533,8 @@ class CenteredSystem(OpticalElement):
         bool
             True if segment should be hidden
         """
-        x1, x2 = point1[0], point2[0]
-
-        # Debug logging
-
-        # Check if this is a segment that crosses through the system
-        # From before/at H to at/after H'
-        h = self._get_current_h_position()
-        h_prime = self._get_current_h_prime_position()
-        crosses_into_system = x1 <= h and x2 >= h_prime
+        # Splitting is handled by `split_segment_at_boundaries`; this hook is
+        # kept for API compatibility but currently never hides any segment.
         return False
 
     def _intersect_arc_boundary(
@@ -703,18 +696,6 @@ class CenteredSystem(OpticalElement):
             return [(point1, point2, True, False)]
         segment_direction = segment_direction / segment_length
 
-        # Check if segment crosses H and H' planes
-        # A segment "crosses" if it goes through (strictly) or ends exactly at the boundary
-        crosses_h = (
-            (x1 < h < x2) or (x2 < h < x1) or abs(x1 - h) < 1e-6 or abs(x2 - h) < 1e-6
-        )
-        crosses_hprime = (
-            (x1 < h_prime < x2)
-            or (x2 < h_prime < x1)
-            or abs(x1 - h_prime) < 1e-6
-            or abs(x2 - h_prime) < 1e-6
-        )
-
         # CRITICAL: Teleportation ONLY occurs from H to H' in the direction of ray travel
         # If the ray encounters H' before H, it should remain VISIBLE until it reaches H
         # Use a slightly relaxed tolerance to handle floating-point precision issues during animations
@@ -812,7 +793,6 @@ class CenteredSystem(OpticalElement):
         # Create segments between split points
         result = []
         current_point = point1
-        current_x = x1
 
         # Determine initial state: are we starting inside or outside boundaries?
         # Check if point1 x-position is within the boundary arc region
@@ -826,7 +806,6 @@ class CenteredSystem(OpticalElement):
                 # Before left boundary: solid (outside)
                 result.append((current_point, split_point, True, False))
                 current_point = split_point
-                current_x = split_point[0]
                 is_inside_boundaries = True  # Now inside after crossing left boundary
                 i += 1
 
@@ -846,17 +825,14 @@ class CenteredSystem(OpticalElement):
                         exit_point = split_points[i + 1][1]
                         result.append((entry_point, exit_point, False, False))
                         current_point = exit_point
-                        current_x = exit_point[0]
                         i += 2  # Skip both h and hprime
                     else:
                         # No teleportation, just crossed H alone
                         current_point = split_point
-                        current_x = split_point[0]
                         i += 1
                 else:
                     # Last point, no teleportation possible
                     current_point = split_point
-                    current_x = split_point[0]
                     i += 1
 
             elif label == "hprime":
@@ -868,14 +844,12 @@ class CenteredSystem(OpticalElement):
 
                 # Continue from H' without teleportation
                 current_point = split_point
-                current_x = split_point[0]
                 i += 1
 
             elif label == "right":
                 # Before right boundary: dashed (inside)
                 result.append((current_point, split_point, True, True))
                 current_point = split_point
-                current_x = split_point[0]
                 is_inside_boundaries = (
                     False  # Now outside after crossing right boundary
                 )

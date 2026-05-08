@@ -121,7 +121,7 @@ class DynamicRay(VMobject):
 
         points.append(current_pos)
 
-        for segment_idx in range(self.max_segments):
+        for _segment_idx in range(self.max_segments):
             # Find the nearest intersection with any optical element
             nearest_intersection = None
             nearest_distance = float("inf")
@@ -585,7 +585,9 @@ class RayBundle(VGroup):
         # Store base start points for y-offset tracking
         self._base_start_list = start_list.copy()
 
-        for idx, (start, base_direction) in enumerate(zip(start_list, dir_list)):
+        for idx, (start, base_direction) in enumerate(
+            zip(start_list, dir_list, strict=True)
+        ):
             # If we have angle-based directions, make them dynamic
             if (
                 self._base_direction_angle_deg is not None
@@ -1383,12 +1385,8 @@ class RayExtension(VMobject):
             # For mirrors with virtual images behind (direction="forward" and is_last_element),
             # we need to extend toward the virtual image position, not just extend the incident ray
             if self.direction == "forward" and is_last_element:
-                # For virtual image: draw line from mirror toward the focal point
-                # Find the intersection point on the mirror
-                mirror_x = element_pos[0]
-
-                # The intersection point is at idx (or close to it)
-                # Find the point at the mirror
+                # For virtual image: draw line from mirror toward the focal point.
+                # The intersection point is at idx (or close to it).
                 intersection_point = ray_points[idx]
 
                 # Calculate the focal point where all rays converge
@@ -1721,7 +1719,7 @@ def find_focal_point_from_rays(
     A = np.zeros((2, 2))
     b = np.zeros(2)
 
-    for origin, direction in zip(ray_origins, ray_directions):
+    for origin, direction in zip(ray_origins, ray_directions, strict=True):
         # Contribution to normal equations
         I_minus_DDT = np.eye(2) - np.outer(direction, direction)
         A += I_minus_DDT

@@ -11,7 +11,6 @@ from manim import LEFT, RIGHT  # noqa: E402
 
 from manim_optics import Mirror, PlaneMirror, SphericalMirror  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # PlaneMirror
 # ---------------------------------------------------------------------------
@@ -115,9 +114,9 @@ class TestSphericalMirror:
         M = mirror.get_transfer_matrix()
         assert M[1, 0] > 0
 
-    @pytest.mark.parametrize("R", [2.0, 4.0, 10.0, -3.0, -8.0])
-    def test_transfer_matrix_unit_determinant(self, R):
-        mirror = SphericalMirror(radius_of_curvature=R)
+    @pytest.mark.parametrize("radius", [2.0, 4.0, 10.0, -3.0, -8.0])
+    def test_transfer_matrix_unit_determinant(self, radius):
+        mirror = SphericalMirror(radius_of_curvature=radius)
         M = mirror.get_transfer_matrix()
         assert np.linalg.det(M) == pytest.approx(1.0, abs=1e-10)
 

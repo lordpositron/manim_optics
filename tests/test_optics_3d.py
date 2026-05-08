@@ -9,7 +9,6 @@ pytest.importorskip("manim", reason="Manim not installed")
 
 from manim_optics import OpticalElement3D, RayBundle3D, ThinLens3D  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # OpticalElement3D — abstract base
 # ---------------------------------------------------------------------------
