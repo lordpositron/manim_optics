@@ -210,3 +210,7 @@ perso/
 media/
 .github
 .DS_Store
+
+manim_venv/
+.vscode/
+.DS_Store
