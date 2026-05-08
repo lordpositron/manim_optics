@@ -144,42 +144,38 @@ class ThinLens(OpticalElement):
 
         else:
             # Diverging lens: <> (arrows pointing inward)
-            # Top extremity: arrows pointing inward (forming an inverted V pointing down-in)
-            # Right tip: from top going down-left (vers le centre)
+            # Top extremity: tips go UP → ∨ shape → arrow points DOWN (inward)
             top_right_tip = Line(
                 top_pos,
                 top_pos
-                + LEFT * tip_length * np.sin(tip_angle)
-                + DOWN * tip_length * np.cos(tip_angle),
+                + RIGHT * tip_length * np.sin(tip_angle)
+                + UP * tip_length * np.cos(tip_angle),
                 stroke_width=self.stroke_width,
                 color=self.color,
             )
-            # Left tip: from top going down-right (vers le centre)
             top_left_tip = Line(
                 top_pos,
                 top_pos
-                + RIGHT * tip_length * np.sin(tip_angle)
-                + DOWN * tip_length * np.cos(tip_angle),
+                + LEFT * tip_length * np.sin(tip_angle)
+                + UP * tip_length * np.cos(tip_angle),
                 stroke_width=self.stroke_width,
                 color=self.color,
             )
 
-            # Bottom extremity: arrows pointing inward (forming a V pointing up-in)
-            # Right tip: from bottom going up-left (vers le centre)
+            # Bottom extremity: tips go DOWN → ∧ shape → arrow points UP (inward)
             bottom_right_tip = Line(
                 bottom_pos,
                 bottom_pos
-                + LEFT * tip_length * np.sin(tip_angle)
-                + UP * tip_length * np.cos(tip_angle),
+                + RIGHT * tip_length * np.sin(tip_angle)
+                + DOWN * tip_length * np.cos(tip_angle),
                 stroke_width=self.stroke_width,
                 color=self.color,
             )
-            # Left tip: from bottom going up-right (vers le centre)
             bottom_left_tip = Line(
                 bottom_pos,
                 bottom_pos
-                + RIGHT * tip_length * np.sin(tip_angle)
-                + UP * tip_length * np.cos(tip_angle),
+                + LEFT * tip_length * np.sin(tip_angle)
+                + DOWN * tip_length * np.cos(tip_angle),
                 stroke_width=self.stroke_width,
                 color=self.color,
             )
