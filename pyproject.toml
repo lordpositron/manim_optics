@@ -50,6 +50,9 @@ Repository = "https://github.com/lordpositron/manim_optics.git"
 "Bug Tracker" = "https://github.com/lordpositron/manim_optics/issues"
 Documentation = "https://manim-optics.readthedocs.io"
 
+[project.entry-points."manim.plugins"]
+"manim-optics" = "manim_optics"
+
 [tool.setuptools]
 packages = ["manim_optics"]
 
