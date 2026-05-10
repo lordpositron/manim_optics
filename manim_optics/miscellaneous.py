@@ -311,7 +311,9 @@ class LinearGraticule(Graticule):
     Useful for measuring distances along one axis.
     """
 
-    def __init__(self, direction: np.ndarray = RIGHT, skip_zero_label: bool = False, **kwargs):
+    def __init__(
+        self, direction: np.ndarray = RIGHT, skip_zero_label: bool = False, **kwargs
+    ):
         """
         Initialize a linear graticule.
 

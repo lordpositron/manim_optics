@@ -8,7 +8,18 @@ This module provides mirror classes for optical simulations.
 from abc import abstractmethod
 
 import numpy as np
-from manim import DEGREES, Dot, GREY_A, GREY_C, Line, ValueTracker, UP, DOWN, LEFT, RIGHT
+from manim import (
+    DEGREES,
+    Dot,
+    GREY_A,
+    GREY_C,
+    Line,
+    ValueTracker,
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+)
 
 from .base import OpticalElement
 
@@ -347,31 +358,39 @@ class SphericalMirror(Mirror):
         hatch_x = 1.0 if self.facing == "left" else -1.0
         hatch_offset = mirror_line.get_center()[0]
         hatch_length = self.mirror_height / self.coating_count * 0.6
-        hatch_dir = np.array([np.cos(45 * DEGREES), np.sin(45 * DEGREES), 0.0]) * hatch_x
+        hatch_dir = (
+            np.array([np.cos(45 * DEGREES), np.sin(45 * DEGREES), 0.0]) * hatch_x
+        )
         for i in range(self.coating_count):
-            y = (-self.mirror_height / 2) + (i + 0.5) * self.mirror_height / self.coating_count
+            y = (-self.mirror_height / 2) + (
+                i + 0.5
+            ) * self.mirror_height / self.coating_count
             center = np.array([hatch_offset, y, 0.0])
-            self.add(Line(
-                center,
-                center + hatch_length * hatch_dir,
-                stroke_width=2,
-                color=self.coating_color,
-            ))
+            self.add(
+                Line(
+                    center,
+                    center + hatch_length * hatch_dir,
+                    stroke_width=2,
+                    color=self.coating_color,
+                )
+            )
 
         # Half-arrows: R<0 (concave) → tips point LEFT; R>0 (convex) → tips point RIGHT
         concave_x = np.sign(self.radius_of_curvature)
         concave_vec = np.array([concave_x, 0.0, 0.0])
         top_tip = Line(
             top_pos,
-            top_pos + concave_vec * self.tip_length * np.sin(tip_angle)
-                     + UP * self.tip_length * np.cos(tip_angle),
+            top_pos
+            + concave_vec * self.tip_length * np.sin(tip_angle)
+            + UP * self.tip_length * np.cos(tip_angle),
             stroke_width=self.stroke_width,
             color=self.mirror_color,
         )
         bottom_tip = Line(
             bottom_pos,
-            bottom_pos + concave_vec * self.tip_length * np.sin(tip_angle)
-                        + DOWN * self.tip_length * np.cos(tip_angle),
+            bottom_pos
+            + concave_vec * self.tip_length * np.sin(tip_angle)
+            + DOWN * self.tip_length * np.cos(tip_angle),
             stroke_width=self.stroke_width,
             color=self.mirror_color,
         )
@@ -469,8 +488,13 @@ class SphericalMirror(Mirror):
         mirror_y_axis = mirror_center[1]
 
         # Height in local frame relative to mirror center
-        local_ip_x = (intersection_point[0] - mirror_center[0]) * c + (intersection_point[1] - mirror_y_axis) * s
-        local_ip_y = -(intersection_point[0] - mirror_center[0]) * s + (intersection_point[1] - mirror_y_axis) * c
+        local_ip_x = (intersection_point[0] - mirror_center[0]) * c + (
+            intersection_point[1] - mirror_y_axis
+        ) * s
+        local_ip_y = (
+            -(intersection_point[0] - mirror_center[0]) * s
+            + (intersection_point[1] - mirror_y_axis) * c
+        )
         y_in = local_ip_y
 
         if abs(local_dx) > 1e-10:

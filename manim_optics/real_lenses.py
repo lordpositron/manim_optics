@@ -97,7 +97,7 @@ class SphericalLens(OpticalElement):
         _offset = np.zeros(3)
         if offset is not None:
             arr = np.asarray(offset, dtype=float)
-            _offset[: len(arr)] = arr[: 3]
+            _offset[: len(arr)] = arr[:3]
         self.offset_x_tracker = ValueTracker(_offset[0])
         self.offset_y_tracker = ValueTracker(_offset[1])
 
@@ -148,7 +148,7 @@ class SphericalLens(OpticalElement):
 
         n_pts = 48
         arc1 = _arc_points(R1, front_x, h, n_pts)  # front: top → bottom
-        arc2 = _arc_points(R2, back_x, h, n_pts)   # back:  top → bottom
+        arc2 = _arc_points(R2, back_x, h, n_pts)  # back:  top → bottom
 
         # Outline: front arc (top→bottom), then back arc reversed (bottom→top)
         outline = np.vstack([arc1, arc2[::-1]])
@@ -189,11 +189,13 @@ class SphericalLens(OpticalElement):
         # Rotate local points by current tilt
         tilt_rad = np.deg2rad(self.tilt_tracker.get_value())
         c, s = np.cos(tilt_rad), np.sin(tilt_rad)
-        rotated = np.column_stack([
-            outline[:, 0] * c - outline[:, 1] * s,
-            outline[:, 0] * s + outline[:, 1] * c,
-            outline[:, 2],
-        ])
+        rotated = np.column_stack(
+            [
+                outline[:, 0] * c - outline[:, 1] * s,
+                outline[:, 0] * s + outline[:, 1] * c,
+                outline[:, 2],
+            ]
+        )
 
         # Translate to current world center
         world_pts = rotated + self._center_ref.get_center()
@@ -270,7 +272,11 @@ class SphericalLens(OpticalElement):
         tilt_rad = np.deg2rad(self.tilt_tracker.get_value())
         c, s = np.cos(tilt_rad), np.sin(tilt_rad)
         rotated = np.array(
-            [local_pt[0] * c - local_pt[1] * s, local_pt[0] * s + local_pt[1] * c, local_pt[2]]
+            [
+                local_pt[0] * c - local_pt[1] * s,
+                local_pt[0] * s + local_pt[1] * c,
+                local_pt[2],
+            ]
         )
         return rotated + self._optical_center()
 
@@ -278,7 +284,11 @@ class SphericalLens(OpticalElement):
         tilt_rad = np.deg2rad(self.tilt_tracker.get_value())
         c, s = np.cos(tilt_rad), np.sin(tilt_rad)
         return np.array(
-            [local_dir[0] * c - local_dir[1] * s, local_dir[0] * s + local_dir[1] * c, local_dir[2]]
+            [
+                local_dir[0] * c - local_dir[1] * s,
+                local_dir[0] * s + local_dir[1] * c,
+                local_dir[2],
+            ]
         )
 
     # ------------------------------------------------------------------
@@ -345,7 +355,9 @@ class SphericalLens(OpticalElement):
             # Keep only the vertex-side intersection
             # R > 0: vertex is left of center → p[0] < cx
             # R < 0: vertex is right of center → p[0] > cx
-            on_vertex_side = (R > 0 and p[0] <= cx + 1e-9) or (R < 0 and p[0] >= cx - 1e-9)
+            on_vertex_side = (R > 0 and p[0] <= cx + 1e-9) or (
+                R < 0 and p[0] >= cx - 1e-9
+            )
             if not on_vertex_side:
                 continue
             if t < best_t:
@@ -531,11 +543,12 @@ class SphericalLens(OpticalElement):
         M_prop = np.array([[1.0, d], [0.0, 1.0]])
         M2 = refr_matrix(n, no, R2)
         return M2 @ M_prop @ M1
-    
+
 
 # ---------------------------------------------------------------------------
 # Convenience subclasses
 # ---------------------------------------------------------------------------
+
 
 class BiconvexLens(SphericalLens):
     """
@@ -615,7 +628,10 @@ class PlanoConcaveLens(SphericalLens):
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _arc_points(R: float, vertex_x: float, half_diam: float, n_pts: int = 48) -> np.ndarray:
+
+def _arc_points(
+    R: float, vertex_x: float, half_diam: float, n_pts: int = 48
+) -> np.ndarray:
     """
     Sample points along a spherical surface arc, from top (+h) to bottom (-h).
 

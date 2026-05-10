@@ -540,21 +540,26 @@ class GalleryRay(Gallery2D):
     def construct(self):
         self.scene_01_ray_bundles()
 
+
 class GalleryLens(Gallery2D):
     def construct(self):
         self.scene_02_lenses()
+
 
 class GalleryBeamStop(Gallery2D):
     def construct(self):
         self.scene_03_beam_stops()
 
+
 class GalleryMirror(Gallery2D):
     def construct(self):
         self.scene_04_mirrors()
 
+
 class GalleryEyeModel(Gallery2D):
     def construct(self):
         self.scene_05_eye()
+
 
 class GalleryGraticules(Gallery2D):
     def construct(self):
