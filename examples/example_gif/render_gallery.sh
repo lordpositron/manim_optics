@@ -16,6 +16,7 @@ SCENES=(
     "GalleryMirror"
     "GalleryEyeModel"
     "GalleryGraticules"
+    "GalleryRealLenses"
 )
 
 GIF_NAMES=(
@@ -25,6 +26,7 @@ GIF_NAMES=(
     "scene_04_mirrors"
     "scene_05_eye"
     "scene_06_graticules"
+    "scene_07_real_lenses"
 )
 
 if ! command -v ffmpeg >/dev/null 2>&1; then

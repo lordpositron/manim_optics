@@ -22,6 +22,7 @@ Dynamic optics for Manim — build scenes where light behaves like a living part
 | Category | Classes |
 | --- | --- |
 | Thin lenses | `ThinLens`, `ConvergingLens`, `DivergingLens` |
+| Real lenses | `SphericalLens`|
 | Mirrors | `PlaneMirror`, `SphericalMirror` |
 | Stops & apertures | `LineBeamStop`, `CircularAperture`, `ArcBeamStop` |
 | Reactive rays | `DynamicRay`, `RayBundle`, `PrincipalRays` |
@@ -76,13 +77,13 @@ class QuickStart(OpticalScene):
 
 ## Example Gallery
 
-### 01 — Ray Bundles
+### Ray Bundles
 
 Parallel and diverging bundles with `y_offset_tracker` and `angle_offset_tracker`, plus a Mobject-tracked source.
 
 ![Ray Bundles](examples/example_gif/scene_01_ray_bundles.gif)
 
-```python
+<!-- ```python
 bundle = RayBundle(
     start_points=[np.array([-6, y, 0]) for y in np.linspace(-1.5, 1.5, 7)],
     direction_angle_deg=0,
@@ -93,17 +94,17 @@ bundle = RayBundle(
 self.play(bundle.animate_propagation())
 self.play(bundle.y_offset_tracker.animate.set_value(1.3))
 self.play(bundle.angle_offset_tracker.animate.set_value(15))
-```
+``` -->
 
 ---
 
-### 02 — Thin Lenses
+### Thin Lenses
 
 `ConvergingLens` and `DivergingLens` with animated focal length and moving image formation.
 
 ![Thin Lenses](examples/example_gif/scene_02_lenses.gif)
 
-```python
+<!-- ```python
 lens = ConvergingLens(focal_length=2.5, height=3.5)
 bundle = RayBundle(
     start_points=[np.array([-6, y, 0]) for y in np.linspace(-1.4, 1.4, 7)],
@@ -115,32 +116,40 @@ bundle = RayBundle(
 self.play(Create(lens))
 self.play(bundle.animate_propagation())
 self.play(lens.focal_length_tracker.animate.set_value(4.5))
-```
+``` -->
 
 ---
 
-### 03 — Beam Stops & Apertures
+### Real Lenses
+
+`SphericalLens` with animated radii of curvature, thickness, refractive index...
+
+![Thin Lenses](examples/example_gif/scene_07_real_lenses.gif)
+
+---
+
+### Beam Stops & Apertures
 
 `LineBeamStop`, `CircularAperture`, and `ArcBeamStop` with animated position and radius.
 
 ![Beam Stops](examples/example_gif/scene_03_beam_stops.gif)
 
-```python
+<!-- ```python
 stop = LineBeamStop(height=1.5)
 aperture = CircularAperture(radius=0.8)
 arc_stop = ArcBeamStop(inner_radius=0.5, outer_radius=1.5)
 # stops block rays that fall outside the aperture
-```
+``` -->
 
 ---
 
-### 04 — Mirrors
+### Mirrors
 
 `PlaneMirror` with `tilt_tracker` animation and `SphericalMirror` (concave, R < 0) converging a parallel bundle.
 
 ![Mirrors](examples/example_gif/scene_04_mirrors.gif)
 
-```python
+<!-- ```python
 mirror = PlaneMirror(height=4.0)
 mirror.shift(RIGHT * 2.5)
 # animate tilt
@@ -149,17 +158,17 @@ self.play(mirror.tilt_tracker.animate.set_value(-30))
 
 # concave spherical mirror (R < 0 = converging)
 sph = SphericalMirror(radius_of_curvature=-6.0, height=3.5, facing="right")
-```
+``` -->
 
 ---
 
-### 05 — Eye Model
+### Eye Model
 
 `Eye` with accommodation (`animate_focal_length`) and pupil diameter animation.
 
 ![Eye Model](examples/example_gif/scene_05_eye.gif)
 
-```python
+<!-- ```python
 eye = Eye(
     focal_length=2.2,
     pupil_diameter=0.8,
@@ -173,7 +182,7 @@ bundle = RayBundle(
 )
 self.play(eye.animate_focal_length(1.8))
 self.play(eye.animate_pupil_diameter(0.4))
-```
+``` -->
 
 ---
 
@@ -183,7 +192,7 @@ self.play(eye.animate_pupil_diameter(0.4))
 
 ![Graticules](examples/example_gif/scene_06_graticules.gif)
 
-```python
+<!-- ```python
 linear = LinearGraticule(length=8, unit_length=1, primary_interval=1,
                           secondary_interval=0.2, show_labels=True)
 
@@ -192,7 +201,7 @@ cross = CrossGraticule(length=8, unit_length=1, primary_interval=1,
 
 grid = GridGraticule(length=6, unit_length=1, primary_interval=1,
                       secondary_interval=0.1, color=GREY_B, show_labels=False)
-```
+``` -->
 
 ---
 
@@ -208,14 +217,6 @@ grid = GridGraticule(length=6, unit_length=1, primary_interval=1,
 | R > 0 | Convex (diverging) | Half-arrows point **right** |
 
 The `facing` parameter only controls hatching placement (`facing="left"` → hatching to the right).
-
-### `tilt_tracker` on mirrors
-
-Both `PlaneMirror` and `SphericalMirror` expose a `tilt_tracker` (`ValueTracker` in degrees). Animating it rotates the mirror around its optical centre while keeping ray geometry consistent:
-
-```python
-self.play(mirror.tilt_tracker.animate.set_value(30), run_time=1.5)
-```
 
 ### Reactive ray tracing
 
@@ -235,7 +236,7 @@ self.play(mirror.tilt_tracker.animate.set_value(30), run_time=1.5)
 from manim_optics import (
     ThinLens, ConvergingLens, DivergingLens,
     Mirror, PlaneMirror, SphericalMirror,
-    BeamStop, LineBeamStop, CircularAperture, ArcBeamStop,
+    BeamStop, LineBeamStop, CircularAperture, ArcBeamStop, SphericalLens
 )
 ```
 
@@ -274,13 +275,9 @@ from manim_optics import (
 
 ```bash
 # render one sub-scene
-manim -pql examples/all_2d_gallery.py Mirror
-
-# regenerate all gallery GIFs
-bash examples/example_gif/render_gallery.sh
+manim -pql examples/all_2d_gallery.py GalleryRay
 ```
-
-Available scene classes: `Ray`, `Lens`, `BeamStop`, `Mirror`, `EyeModel`, `Graticules`.
+Avaliable scenes are : `GalleryRay`, `GalleryLens`, `GalleryBeamStop`, `GalleryMirror`, `GalleryEyeModel`, `GalleryGraticules`, `GalleryRealLenses`
 
 ---
 
@@ -292,7 +289,8 @@ manim_optics/          ← source package
   lenses.py            ← ThinLens, ConvergingLens, DivergingLens
   mirrors.py           ← PlaneMirror, SphericalMirror
   beam_stops.py        ← LineBeamStop, CircularAperture, ArcBeamStop
-  rays.py              ← DynamicRay, RayBundle, PrincipalRays, …
+  rays.py              ← DynamicRay, RayBundle, PrincipalRays…
+  real_lenses.py       ← SphericalLens, BiconvexLens…
   centered_system.py   ← CenteredSystem
   eye.py               ← Eye
   optics_3d.py         ← OpticalElement3D, ThinLens3D, RayBundle3D
@@ -303,9 +301,3 @@ examples/
   example_gif/         ← rendered GIFs + render_gallery.sh
 tests/                 ← 176 pytest tests
 ```
-
----
-
-## License
-
-MIT

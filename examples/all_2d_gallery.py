@@ -29,7 +29,7 @@ class Gallery2D(OpticalScene):
             self.play(FadeOut(Group(*self.mobjects)), run_time=0.5)
 
     def _title(self, num: int, title: str):
-        t = Text(f"{num:02d} — {title}", font_size=44, color=WHITE, weight=BOLD)
+        t = Text(f"{title}", font_size=44, color=WHITE, weight=BOLD)
         self.play(Write(t), run_time=0.5)
         self.wait(0.7)
         self.play(FadeOut(t), run_time=0.4)
@@ -535,6 +535,79 @@ class Gallery2D(OpticalScene):
         self.play(FadeOut(grid), FadeOut(lbl3), run_time=0.4)
         self.wait(0.3)
 
+    def scene_07_real_lenses(self):
+        self._title(7, "Real Lenses")
+        lens = SphericalLens(
+            R1=5,
+            R2=-5,
+            thickness=1,
+            n=1.5,
+            diameter=3.5,
+            fill_color=BLUE,
+            fill_opacity=0.3,
+        )
+
+        bundle = create_parallel_bundle(
+            num_rays=9,
+            spacing=0.35,
+            start_x=-6,
+            optical_elements=[lens],
+            color=YELLOW,
+            stroke_width=1.5,
+        )
+
+        f_lbl = always_redraw(
+            lambda: Tex(
+                f"$n$ = {lens.n_tracker.get_value():.1f}",
+                font_size=24,
+                color=BLUE_B,
+            ).move_to(lens.get_center() + DOWN * 3)
+        )
+
+        f_lbl_thick = always_redraw(
+            lambda: Tex(
+                f"$d$ = {lens.thickness_tracker.get_value():.1f}",
+                font_size=24,
+                color=BLUE_B,
+            ).move_to(lens.get_center() + DOWN * 3)
+        )
+
+
+        text = self._label("SphericalLens — real ray tracing with refraction")
+        self.play(Create(lens), Create(bundle), Create(text), run_time=self.ANIM_TIME)
+        self.wait(self.ANIM_TIME)
+
+        text = self._ann("SphericalLens — change refractive index")
+        self.play(Write(f_lbl), lens.n_tracker.animate.set_value(1.3), run_time=self.ANIM_TIME*2)
+        self.play(lens.n_tracker.animate.set_value(2), run_time=self.ANIM_TIME*2)
+        self.play(lens.n_tracker.animate.set_value(1.6), run_time=self.ANIM_TIME)
+        self.play(FadeOut(text), FadeOut(f_lbl), run_time=self.TEXT_TIME)
+        self.wait(self.ANIM_TIME)
+
+        text = self._ann("SphericalLens — change thickness")
+        self.play(Write(f_lbl_thick), lens.thickness_tracker.animate.set_value(5), run_time=self.ANIM_TIME*2)
+        self.play(lens.thickness_tracker.animate.set_value(1.5), run_time=self.ANIM_TIME*2)
+        self.play(FadeOut(text), FadeOut(f_lbl_thick), run_time=self.TEXT_TIME)
+        self.wait(self.ANIM_TIME)
+
+        text = self._ann("SphericalLens — change radii of curvature")
+        self.play(lens.R1_tracker.animate.set_value(30), run_time=self.ANIM_TIME*2)
+        self.play(lens.R1_tracker.animate.set_value(3), lens.R2_tracker.animate.set_value(-50), run_time=self.ANIM_TIME*2)
+        self.play(lens.R1_tracker.animate.set_value(6), lens.R2_tracker.animate.set_value(-6), run_time=self.ANIM_TIME)
+        self.play(FadeOut(text),  run_time=self.TEXT_TIME)
+        self.wait(self.ANIM_TIME)
+
+        text = self._ann("SphericalLens — Decentration and tilt")
+        self.play(lens.diameter_tracker.animate.set_value(5), run_time=self.ANIM_TIME*2)
+        self.play(lens.tilt_tracker.animate.set_value(-10), run_time=self.ANIM_TIME*2)
+        self.play(lens.tilt_tracker.animate.set_value(10), run_time=self.ANIM_TIME*2)
+        self.play(lens.tilt_tracker.animate.set_value(0), run_time=self.ANIM_TIME)
+        self.play(lens.offset_x_tracker.animate.set_value(0.8), run_time=self.ANIM_TIME*2)
+        self.play(lens.offset_y_tracker.animate.set_value(-0.8), run_time=self.ANIM_TIME*2)
+        self.play(lens.offset_y_tracker.animate.set_value(0), run_time=self.ANIM_TIME)
+        self.play(FadeOut(text),  run_time=self.TEXT_TIME)
+        self.wait(self.ANIM_TIME)
+
 
 class GalleryRay(Gallery2D):
     def construct(self):
@@ -564,3 +637,7 @@ class GalleryEyeModel(Gallery2D):
 class GalleryGraticules(Gallery2D):
     def construct(self):
         self.scene_06_graticules()
+
+class GalleryRealLenses(Gallery2D):
+    def construct(self):
+        self.scene_07_real_lenses()
