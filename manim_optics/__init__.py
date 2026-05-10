@@ -28,6 +28,15 @@ from .eye import Eye
 # Lenses
 from .lenses import ConvergingLens, DivergingLens, ThinLens
 
+# Real (thick) spherical lenses — exact Snell-Descartes refraction
+from .real_lenses import (
+    BiconcaveLens,
+    BiconvexLens,
+    PlanoConcaveLens,
+    PlanoConvexLens,
+    SphericalLens,
+)
+
 # Mirrors
 from .mirrors import Mirror, PlaneMirror, SphericalMirror
 
@@ -70,10 +79,16 @@ __all__ = [
     # Base
     "OpticalElement",
     "rotate_vector_2d",
-    # Lenses
+    # Thin (ideal) lenses
     "ThinLens",
     "ConvergingLens",
     "DivergingLens",
+    # Real spherical thick lenses
+    "SphericalLens",
+    "BiconvexLens",
+    "BiconcaveLens",
+    "PlanoConvexLens",
+    "PlanoConcaveLens",
     # Mirrors
     "Mirror",
     "PlaneMirror",
